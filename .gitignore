@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### QhuriNet ###
+# Archivos subidos por los usuarios y logs locales
+uploads/
+logs/
