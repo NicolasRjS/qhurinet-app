@@ -22,9 +22,11 @@ import java.util.NoSuchElementException;
 
 /*
  Guia de errores del proyecto (los traduce GlobalExceptionHandler):
-   IllegalArgumentException -> 400  dato invalido. Mensaje "campo: detalle"; varios se unen con ", "
-   NoSuchElementException   -> 404  recurso no encontrado
-   IllegalStateException    -> 409  conflicto de estado o de unicidad
+   IllegalArgumentException      -> 400  dato invalido. Mensaje "campo: detalle"; varios se unen con ", "
+   AccessDeniedException         -> 403  el usuario no es dueño o parte del recurso
+   NoSuchElementException        -> 404  recurso no encontrado
+   IllegalStateException         -> 409  conflicto de estado o de unicidad
+   UnsupportedOperationException -> 501  metodo PENDIENTE (falta la consulta o un servicio externo)
 */
 @Service
 @Slf4j
@@ -61,38 +63,38 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Transactional
     @Override
-    public UsuarioDTO registrar(RegistroUsuarioDTO registroUsuarioDTO) {
-        String email = normalizarEmail(registroUsuarioDTO.getEmail());
+    public UsuarioDTO registrar(RegistrarUsuarioDTO registrarUsuarioDTO) {
+        String email = normalizarEmail(registrarUsuarioDTO.getEmail());
 
         List<String> errores = new ArrayList<>();
-        validarNombre(registroUsuarioDTO.getNombreCompleto(), errores);
+        validarNombre(registrarUsuarioDTO.getNombreCompleto(), errores);
         if (email.isEmpty()) {
             errores.add("email: es obligatorio");
         } else if (!email.matches(PATRON_EMAIL) || email.length() > EMAIL_MAX) {
             errores.add("email: no tiene un formato válido");
         }
-        if (registroUsuarioDTO.getPassword() == null || registroUsuarioDTO.getPassword().length() < PASSWORD_MIN) {
+        if (registrarUsuarioDTO.getPassword() == null || registrarUsuarioDTO.getPassword().length() < PASSWORD_MIN) {
             errores.add("password: debe tener al menos " + PASSWORD_MIN + " caracteres");
         }
-        validarTelefono(registroUsuarioDTO.getTelefono(), errores);
-        if (registroUsuarioDTO.getRolId() == null) {
+        validarTelefono(registrarUsuarioDTO.getTelefono(), errores);
+        if (registrarUsuarioDTO.getRolId() == null) {
             errores.add("rolId: es obligatorio");
         }
         if (!errores.isEmpty()) {
             throw new IllegalArgumentException(String.join(", ", errores));
         }
 
-        Rol rol = rolService.buscarRolDeRegistro(registroUsuarioDTO.getRolId());
+        Rol rol = rolService.buscarRolDeRegistro(registrarUsuarioDTO.getRolId());
         if (usuarioRepositorio.existsByEmail(email)) {
             throw new IllegalStateException("El correo electrónico ya está en uso");
         }
 
         // Se arma la entidad a mano: el password se cifra y el estado lo asigna el servidor
         Usuario usuario = new Usuario();
-        usuario.setNombreCompleto(registroUsuarioDTO.getNombreCompleto().trim());
+        usuario.setNombreCompleto(registrarUsuarioDTO.getNombreCompleto().trim());
         usuario.setEmail(email);
-        usuario.setPasswordHash(passwordEncoder.encode(registroUsuarioDTO.getPassword()));
-        usuario.setTelefono(registroUsuarioDTO.getTelefono());
+        usuario.setPasswordHash(passwordEncoder.encode(registrarUsuarioDTO.getPassword()));
+        usuario.setTelefono(registrarUsuarioDTO.getTelefono());
         usuario.setRol(rol);
         usuario = usuarioRepositorio.save(usuario);
 
@@ -181,6 +183,21 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuario.setMetodoPagoPreferido(metodoPago);
         usuarioRepositorio.save(usuario);
         return new MetodoPagoDTO(usuario.getMetodoPagoPreferido());
+    }
+
+    @Override
+    public ReputacionUsuarioDTO obtenerReputacion(Long id) {
+        Usuario usuario = usuarioRepositorio.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado"));
+        // PENDIENTE (query): total de solicitudes 'ejecutada' donde el usuario es recolector y si tiene
+        // algun documento 'aprobado'. Con eso: new ReputacionUsuarioDTO(usuario.getId(), usuario.getNombreCompleto(),
+        // usuario.getFotoPerfilUrl(), calificacionPromedio o null si no tiene entregas calificadas (US 10-EP2), total, verificado)
+        throw new UnsupportedOperationException("END-12 pendiente: falta la consulta de entregas y documentos del usuario " + usuario.getId());
+    }
+
+    @Override
+    public Usuario obtenerUsuario(String email) {
+        return buscarUsuario(email);
     }
 
     private Usuario buscarUsuario(String email) {

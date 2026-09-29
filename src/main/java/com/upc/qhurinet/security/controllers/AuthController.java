@@ -1,6 +1,6 @@
 package com.upc.qhurinet.security.controllers;
 
-import com.upc.qhurinet.dtos.RegistroUsuarioDTO;
+import com.upc.qhurinet.dtos.RegistrarUsuarioDTO;
 import com.upc.qhurinet.dtos.UsuarioDTO;
 import com.upc.qhurinet.security.dtos.AuthRequestDTO;
 import com.upc.qhurinet.security.dtos.AuthResponseDTO;
@@ -36,8 +36,8 @@ public class AuthController {
 
     // END-01: 201 con la cuenta en estado pendiente_verificacion
     @PostMapping("/register")
-    public ResponseEntity<UsuarioDTO> registrar(@RequestBody RegistroUsuarioDTO registroUsuarioDTO) {
-        UsuarioDTO usuarioDTO = usuarioService.registrar(registroUsuarioDTO);
+    public ResponseEntity<UsuarioDTO> registrar(@RequestBody RegistrarUsuarioDTO registrarUsuarioDTO) {
+        UsuarioDTO usuarioDTO = usuarioService.registrar(registrarUsuarioDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioDTO);
     }
 

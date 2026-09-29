@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /*
- Perfil del usuario autenticado (END-05 a END-09).
+ Perfil del usuario autenticado (END-05 a END-09) y reputacion publica (END-12).
  Todas las rutas son /me: el usuario se identifica con el token, nunca con un id del cuerpo o de la ruta.
  Cualquier rol autenticado puede usarlas (SecurityConfig: anyRequest().authenticated()).
  Para restringir por rol en otros controladores: @PreAuthorize("hasRole('GENERADOR')").
@@ -51,6 +51,12 @@ public class UsuarioController {
     @PatchMapping("/me/payment-method")
     public ResponseEntity<MetodoPagoDTO> actualizarMetodoPago(@RequestBody MetodoPagoDTO metodoPagoDTO) {
         return ResponseEntity.ok(usuarioService.actualizarMetodoPago(emailAutenticado(), metodoPagoDTO));
+    }
+
+    // END-12: reputacion publica de otro usuario (generador o recolector)
+    @GetMapping("/{id}/reputation")
+    public ResponseEntity<ReputacionUsuarioDTO> obtenerReputacion(@PathVariable Long id) {
+        return ResponseEntity.ok(usuarioService.obtenerReputacion(id));
     }
 
     // El JwtRequestFilter dejo al usuario en el contexto; su nombre es el email (sujeto del token)

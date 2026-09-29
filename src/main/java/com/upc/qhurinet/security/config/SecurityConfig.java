@@ -60,6 +60,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/verify-email"
                         ).permitAll()
+                        // Pagina de error de Spring: sin esto un 404 o 400 de enrutamiento termina en 401
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
