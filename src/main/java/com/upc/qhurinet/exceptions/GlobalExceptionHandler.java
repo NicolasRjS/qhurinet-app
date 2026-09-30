@@ -7,6 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.NoSuchElementException;
@@ -73,6 +74,15 @@ public class GlobalExceptionHandler {
         log.warn("Pendiente: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                 .body(new ErrorResponse("NOT_IMPLEMENTED", ex.getMessage()));
+    }
+
+    // 503: el servicio externo no responde
+    @ExceptionHandler(RestClientException.class)
+    public ResponseEntity<ErrorResponse> handleServiceUnavailable(RestClientException ex) {
+        log.warn("Servicio externo no disponible: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("SERVICE_UNAVAILABLE",
+                        "El servicio de rutas no está disponible, inténtalo nuevamente"));
     }
 
     // RuntimeException genérica (las que lanzas desde el service)
