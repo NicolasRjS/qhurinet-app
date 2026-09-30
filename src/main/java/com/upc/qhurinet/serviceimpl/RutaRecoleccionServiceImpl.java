@@ -11,16 +11,29 @@ import com.upc.qhurinet.services.RutaRecoleccionService;
 import com.upc.qhurinet.services.UsuarioService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.util.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 
 @Service
 public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
     private static final int PARADAS_MIN = 2;    // US 21-EP3
     private static final int PARADAS_MAX = 10;   // limite del servicio externo de rutas
     private static final int NOMBRE_MAX = 150;   // rutas_recoleccion.nombre varchar(150)
+
+    @Value("${rutas.osrm.url}")
+    private String rutasOsrmUrl;
+
+    // RestClient se usa por la integracion aprobada con OSRM.
+    private final RestClient restClient = crearRestClient();
 
     @Autowired
     private RutaRecoleccionRepositorio rutaRecoleccionRepositorio;
@@ -43,10 +56,70 @@ public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
         }
         // Las coordenadas se toman de la base, no del cliente (404 si algun punto no existe)
         List<PuntoReciclaje> puntos = puntosIds.stream().map(puntoReciclajeService::obtenerPunto).toList();
-        // PENDIENTE (servicio externo): enviar origen y puntos al proveedor de rutas y devolver el orden,
-        // la distancia y el tiempo. Si no responde, 503 (US 21-EP3). La ruta no se guarda aqui.
-        throw new UnsupportedOperationException("END-36 pendiente: falta integrar el servicio externo de rutas ("
-                + puntos.size() + " puntos validados)");
+
+        StringBuilder coordenadas = new StringBuilder();
+        coordenadas.append(optimizarRutaDTO.getLongitudOrigen()).append(',')
+                .append(optimizarRutaDTO.getLatitudOrigen());
+        for (PuntoReciclaje punto : puntos) {
+            coordenadas.append(';').append(punto.getLongitud()).append(',').append(punto.getLatitud());
+        }
+        String url = rutasOsrmUrl.replaceAll("/+$", "") + "/trip/v1/driving/" + coordenadas
+                + "?source=first&roundtrip=false&destination=any&overview=false";
+
+        Map<?, ?> respuesta = restClient.get()
+                .uri(url)
+                .retrieve()
+                .body(Map.class);
+        if (respuesta == null || !"Ok".equals(respuesta.get("code"))) {
+            throw new RestClientException("El servicio de rutas no está disponible");
+        }
+
+        Object waypointsRespuesta = respuesta.get("waypoints");
+        Object viajesRespuesta = respuesta.get("trips");
+        if (!(waypointsRespuesta instanceof List) || !(viajesRespuesta instanceof List)) {
+            throw new RestClientException("El servicio de rutas no está disponible");
+        }
+        List<?> waypoints = (List<?>) waypointsRespuesta;
+        List<?> viajes = (List<?>) viajesRespuesta;
+        if (waypoints.size() != puntos.size() + 1 || viajes.isEmpty() || !(viajes.get(0) instanceof Map)) {
+            throw new RestClientException("El servicio de rutas no está disponible");
+        }
+        Map<?, ?> viaje = (Map<?, ?>) viajes.get(0);
+        Object distanciaRespuesta = viaje.get("distance");
+        Object duracionRespuesta = viaje.get("duration");
+        if (!(distanciaRespuesta instanceof Number) || !(duracionRespuesta instanceof Number)) {
+            throw new RestClientException("El servicio de rutas no está disponible");
+        }
+        Number distancia = (Number) distanciaRespuesta;
+        Number duracion = (Number) duracionRespuesta;
+
+        List<ParadaRutaDTO> paradas = new ArrayList<>();
+        for (int i = 1; i < waypoints.size(); i++) {
+            if (!(waypoints.get(i) instanceof Map)) {
+                throw new RestClientException("El servicio de rutas no está disponible");
+            }
+            Map<?, ?> waypoint = (Map<?, ?>) waypoints.get(i);
+            Object ordenRespuesta = waypoint.get("waypoint_index");
+            if (!(ordenRespuesta instanceof Number)) {
+                throw new RestClientException("El servicio de rutas no está disponible");
+            }
+            PuntoReciclaje punto = puntos.get(i - 1);
+            paradas.add(new ParadaRutaDTO(punto.getId(), ((Number) ordenRespuesta).intValue(), punto.getNombre(),
+                    punto.getDireccion(), punto.getLatitud(), punto.getLongitud()));
+        }
+        paradas.sort(Comparator.comparing(ParadaRutaDTO::getOrden));
+
+        BigDecimal distanciaKm = BigDecimal.valueOf(distancia.doubleValue())
+                .divide(BigDecimal.valueOf(1000), 2, RoundingMode.HALF_UP);
+        int tiempoMinutos = (int) Math.round(duracion.doubleValue() / 60);
+        return new RutaOptimizadaDTO(paradas, distanciaKm, tiempoMinutos);
+    }
+
+    private RestClient crearRestClient() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+        return RestClient.builder().requestFactory(requestFactory).build();
     }
 
     // La ruta y sus paradas se guardan en una sola transaccion por el cascade de RutaRecoleccion.paradas

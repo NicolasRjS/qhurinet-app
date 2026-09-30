@@ -31,6 +31,24 @@ public class TicketSoporteServiceImpl implements TicketSoporteService {
     private static final int ASUNTO_MAX = 150;   // tickets_soporte.asunto varchar(150)
     private static final String CARPETA_EVIDENCIAS = "evidencias_tickets";
     private static final List<String> FORMATOS_IMAGEN = List.of("jpg", "jpeg", "png", "webp"); // US 12-EP2
+    // DEMO: contenido provisional
+    private static final List<FaqDTO> FAQS = List.of(
+            new FaqDTO("¿Cómo publico material reciclable?",
+                    "Inicia sesión como generador con una cuenta activa y publica una categoría, cantidad, dirección y fecha de disponibilidad. Cada publicación corresponde a un solo material."),
+            new FaqDTO("¿Cómo reclamo un anuncio?",
+                    "Como recolector, elige una publicación disponible en el mapa y selecciona reclamar. Luego podrás coordinar el retiro por el chat de esa recolección."),
+            new FaqDTO("¿Cómo funciona el código QR?",
+                    "Cuando la recolección esté coordinada, el generador muestra el código QR y el recolector asignado lo escanea para confirmar la entrega."),
+            new FaqDTO("¿Puedo reprogramar o cancelar una recolección?",
+                    "Abre el detalle de la recolección para reprogramarla o cancelarla. Cualquiera de las dos partes puede hacerlo; al cancelar, indica el motivo y la publicación vuelve a estar disponible."),
+            new FaqDTO("¿Cuándo puedo calificar el servicio?",
+                    "Cuando la entrega figure como ejecutada, el generador puede calificar al recolector de una a cinco estrellas."),
+            new FaqDTO("¿Para qué sirve verificar mis documentos?",
+                    "La verificación ayuda a confirmar la identidad de la cuenta. Sube un documento admitido y revisa su estado en tu perfil."),
+            new FaqDTO("¿Qué métodos de pago puedo acordar?",
+                    "Puedes acordar tarjeta, Yape, Plin, transferencia o efectivo. Confirma el monto y el método con la otra parte antes del retiro."),
+            new FaqDTO("¿Cómo abro un ticket de soporte?",
+                    "Entra a soporte, elige la categoría y escribe un asunto y una descripción. Puedes vincularlo a una recolección y adjuntar evidencia."));
 
     @Value("${soporte.telefono}")
     private String telefonoSoporte;
@@ -50,8 +68,7 @@ public class TicketSoporteServiceImpl implements TicketSoporteService {
 
     @Override
     public List<FaqDTO> listarFaqs() {
-        // PENDIENTE (contenido): END-45 es contenido estatico de la aplicacion y aun no esta redactado
-        throw new UnsupportedOperationException("END-45 pendiente: falta definir el contenido de las preguntas frecuentes");
+        return FAQS;
     }
 
     @Transactional
