@@ -14,9 +14,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HistorialDTO {
-    private LocalDateTime fechaEjecucion;
+    private LocalDateTime fecha;
     private String material;
     private BigDecimal cantidad;
     private String contraparte;
     private Integer calificacionRecolector;
+    private String estado;
+    private BigDecimal montoPago;
 }

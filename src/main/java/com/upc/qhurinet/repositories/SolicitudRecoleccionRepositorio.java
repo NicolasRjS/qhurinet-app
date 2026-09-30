@@ -10,7 +10,9 @@ import java.util.List;
 public interface SolicitudRecoleccionRepositorio extends JpaRepository<SolicitudRecoleccion, Long> {
     List<SolicitudRecoleccion> findByRecolector_IdOrderByPrioritariaDescFechaCoordinadaAsc(Long recolectorId);
     List<SolicitudRecoleccion> findByRecolector_IdAndEstado(Long recolectorId, String estado);
+    List<SolicitudRecoleccion> findByRecolector_IdAndEstadoIn(Long recolectorId, List<String> estados);
     List<SolicitudRecoleccion> findByPublicacion_Generador_IdAndEstado(Long generadorId, String estado);
+    List<SolicitudRecoleccion> findByPublicacion_Generador_IdAndEstadoIn(Long generadorId, List<String> estados);
 
     @Query("select s from SolicitudRecoleccion s where s.recolector.id = :recolectorId "
             + "and s.estado = :estado and s.calificacionRecolector is not null")

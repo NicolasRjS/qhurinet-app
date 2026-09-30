@@ -78,6 +78,7 @@ public class SolicitudRecoleccionServiceImpl implements SolicitudRecoleccionServ
         publicacionMaterialRepositorio.save(publicacion);
         notificacionService.notificar(publicacion.getGenerador(),
                 "Tu publicación de " + nombreMaterial(solicitud) + " fue reclamada por un recolector");
+        notificacionService.notificar(recolector, "Reclamaste la publicación de " + nombreMaterial(solicitud));
         return modelMapper.map(solicitud, SolicitudDTO.class);
     }
 
@@ -119,6 +120,7 @@ public class SolicitudRecoleccionServiceImpl implements SolicitudRecoleccionServ
         solicitud.setEstado(COORDINADA);
         solicitud = solicitudRecoleccionRepositorio.save(solicitud);
         notificarContraparte(solicitud, email, "La recolección de " + nombreMaterial(solicitud) + " fue reprogramada para el " + fecha);
+        notificarAutor(solicitud, email, "Reprogramaste la recolección de " + nombreMaterial(solicitud) + " para el " + fecha);
         return modelMapper.map(solicitud, SolicitudDTO.class);
     }
 
@@ -142,6 +144,7 @@ public class SolicitudRecoleccionServiceImpl implements SolicitudRecoleccionServ
         publicacion.setEstado(PublicacionMaterialServiceImpl.DISPONIBLE);
         publicacionMaterialRepositorio.save(publicacion);
         notificarContraparte(solicitud, email, "La recolección de " + nombreMaterial(solicitud) + " fue cancelada. Motivo: " + motivo.trim());
+        notificarAutor(solicitud, email, "Cancelaste la recolección de " + nombreMaterial(solicitud) + ". Motivo: " + motivo.trim());
         return modelMapper.map(solicitud, SolicitudDTO.class);
     }
 
@@ -301,6 +304,13 @@ public class SolicitudRecoleccionServiceImpl implements SolicitudRecoleccionServ
         Usuario contraparte = esGenerador(solicitud, email) ? solicitud.getRecolector() : solicitud.getPublicacion().getGenerador();
         if (contraparte != null) {
             notificacionService.notificar(contraparte, mensaje);
+        }
+    }
+
+    private void notificarAutor(SolicitudRecoleccion solicitud, String email, String mensaje) {
+        Usuario autor = esGenerador(solicitud, email) ? solicitud.getPublicacion().getGenerador() : solicitud.getRecolector();
+        if (autor != null) {
+            notificacionService.notificar(autor, mensaje);
         }
     }
 

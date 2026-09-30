@@ -3,8 +3,8 @@ package com.upc.qhurinet.serviceimpl;
 import com.upc.qhurinet.dtos.HistorialDTO;
 import com.upc.qhurinet.dtos.ReporteMaterialDTO;
 import com.upc.qhurinet.dtos.ResumenReporteDTO;
-import com.upc.qhurinet.entities.Usuario;
 import com.upc.qhurinet.entities.SolicitudRecoleccion;
+import com.upc.qhurinet.entities.Usuario;
 import com.upc.qhurinet.repositories.SolicitudRecoleccionRepositorio;
 import com.upc.qhurinet.services.ReporteService;
 import com.upc.qhurinet.services.UsuarioService;
@@ -13,11 +13,13 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.List;
 
 @Service
 public class ReporteServiceImpl implements ReporteService {
@@ -66,27 +68,29 @@ public class ReporteServiceImpl implements ReporteService {
     public List<HistorialDTO> obtenerHistorial(String email, String tipo, LocalDate desde, LocalDate hasta) {
         validarPeriodo(desde, hasta);
         Usuario usuario = usuarioService.obtenerUsuario(email);
-        // PENDIENTE (definicion): END-43 y US 33 piden ejecutadas; US 35 tambien exige canceladas.
-        // El parametro tipo no tiene valores definidos en las historias.
-        throw new UnsupportedOperationException("END-43 pendiente: confirmar si el historial incluye canceladas (US 35-EP5) "
-                + "o solo ejecutadas (END-43 y US 33-EP5) para el usuario " + usuario.getId());
+        return obtenerSolicitudesHistorial(usuario, tipo, desde, hasta)
+                .stream()
+                .map(solicitud -> convertirHistorial(usuario, solicitud))
+                .toList();
     }
 
     @Override
     public byte[] exportar(String email, String formato, LocalDate desde, LocalDate hasta) {
-        if (formato == null || !FORMATOS.contains(formato)) {
+        String formatoNormalizado = formato == null ? "" : formato.trim().toLowerCase();
+        if (!FORMATOS.contains(formatoNormalizado)) {
             throw new IllegalArgumentException("formato: debe ser pdf o csv");
         }
         validarPeriodo(desde, hasta);
-        usuarioService.obtenerUsuario(email);
-        if ("pdf".equals(formato)) {
+        Usuario usuario = usuarioService.obtenerUsuario(email);
+        if ("pdf".equals(formatoNormalizado)) {
             // PENDIENTE (libreria): falta acordar una libreria PDF con el equipo.
             throw new UnsupportedOperationException("END-44 pendiente: la exportación PDF requiere una librería aprobada por el equipo");
         }
-        // PENDIENTE (definicion): el CSV depende del alcance del historial de END-43.
-        // US 36 pide estado y monto; HistorialDTO no los expone y END-43 no los especifica.
-        throw new UnsupportedOperationException("END-44 pendiente: confirmar el alcance de END-43 y los campos estado y monto "
-                + "del historial antes de generar el CSV");
+        List<SolicitudRecoleccion> solicitudes = obtenerSolicitudesHistorial(usuario, null, desde, hasta);
+        if (solicitudes.isEmpty()) {
+            throw new IllegalArgumentException("No hay datos para exportar en el periodo");
+        }
+        return construirCsv(usuario, solicitudes).getBytes(StandardCharsets.UTF_8);
     }
 
     private List<SolicitudRecoleccion> obtenerEjecutadasDelPeriodo(Usuario usuario, LocalDate desde, LocalDate hasta) {
@@ -110,6 +114,86 @@ public class ReporteServiceImpl implements ReporteService {
                         && (inicio == null || !solicitud.getFechaEjecucion().toLocalDate().isBefore(inicio))
                         && (fin == null || !solicitud.getFechaEjecucion().toLocalDate().isAfter(fin))))
                 .toList();
+    }
+
+    private List<SolicitudRecoleccion> obtenerSolicitudesHistorial(Usuario usuario, String tipo, LocalDate desde, LocalDate hasta) {
+        List<String> estados = estadosHistorial(tipo);
+        List<SolicitudRecoleccion> solicitudes;
+        if (RolServiceImpl.GENERADOR.equals(usuario.getRol().getNombre())) {
+            solicitudes = solicitudRecoleccionRepositorio.findByPublicacion_Generador_IdAndEstadoIn(usuario.getId(), estados);
+        } else if (RolServiceImpl.RECOLECTOR.equals(usuario.getRol().getNombre())) {
+            solicitudes = solicitudRecoleccionRepositorio.findByRecolector_IdAndEstadoIn(usuario.getId(), estados);
+        } else {
+            solicitudes = List.of();
+        }
+        return solicitudes.stream()
+                .filter(solicitud -> estaEnPeriodo(fechaHistorial(solicitud), desde, hasta))
+                .sorted(Comparator.comparing((SolicitudRecoleccion solicitud) -> fechaHistorial(solicitud)).reversed())
+                .toList();
+    }
+
+    private List<String> estadosHistorial(String tipo) {
+        if (tipo == null || tipo.isBlank()) {
+            return List.of(SolicitudRecoleccionServiceImpl.EJECUTADA, SolicitudRecoleccionServiceImpl.CANCELADA);
+        }
+        String tipoNormalizado = tipo.trim().toLowerCase();
+        if ("ejecutadas".equals(tipoNormalizado)) {
+            return List.of(SolicitudRecoleccionServiceImpl.EJECUTADA);
+        }
+        if ("canceladas".equals(tipoNormalizado)) {
+            return List.of(SolicitudRecoleccionServiceImpl.CANCELADA);
+        }
+        throw new IllegalArgumentException("tipo: debe ser ejecutadas o canceladas");
+    }
+
+    private boolean estaEnPeriodo(LocalDateTime fecha, LocalDate desde, LocalDate hasta) {
+        return (desde == null || !fecha.toLocalDate().isBefore(desde))
+                && (hasta == null || !fecha.toLocalDate().isAfter(hasta));
+    }
+
+    private HistorialDTO convertirHistorial(Usuario usuario, SolicitudRecoleccion solicitud) {
+        return new HistorialDTO(fechaHistorial(solicitud), nombreMaterial(solicitud),
+                solicitud.getPublicacion().getCantidad(), nombreContraparte(usuario, solicitud),
+                solicitud.getCalificacionRecolector(), solicitud.getEstado(), solicitud.getMontoPago());
+    }
+
+    private String construirCsv(Usuario usuario, List<SolicitudRecoleccion> solicitudes) {
+        StringBuilder csv = new StringBuilder("fecha,material,cantidad,unidad,contraparte,estado,monto\n");
+        solicitudes.forEach(solicitud -> csv.append(campoCsv(fechaHistorial(solicitud)))
+                .append(",").append(campoCsv(nombreMaterial(solicitud)))
+                .append(",").append(campoCsv(solicitud.getPublicacion().getCantidad()))
+                .append(",").append(campoCsv(solicitud.getPublicacion().getUnidadMedida()))
+                .append(",").append(campoCsv(nombreContraparte(usuario, solicitud)))
+                .append(",").append(campoCsv(solicitud.getEstado()))
+                .append(",").append(campoCsv(solicitud.getMontoPago()))
+                .append("\n"));
+        return csv.toString();
+    }
+
+    private String campoCsv(Object valor) {
+        if (valor == null) {
+            return "";
+        }
+        String texto = valor instanceof BigDecimal ? ((BigDecimal) valor).toPlainString() : valor.toString();
+        if (texto.contains(",") || texto.contains("\"") || texto.contains("\n") || texto.contains("\r")) {
+            return "\"" + texto.replace("\"", "\"\"") + "\"";
+        }
+        return texto;
+    }
+
+    private LocalDateTime fechaHistorial(SolicitudRecoleccion solicitud) {
+        return solicitud.getFechaEjecucion() == null ? solicitud.getFechaSolicitud() : solicitud.getFechaEjecucion();
+    }
+
+    private String nombreMaterial(SolicitudRecoleccion solicitud) {
+        return solicitud.getPublicacion().getCategoriaMaterial().getNombre();
+    }
+
+    private String nombreContraparte(Usuario usuario, SolicitudRecoleccion solicitud) {
+        if (solicitud.getRecolector() != null && solicitud.getRecolector().getId().equals(usuario.getId())) {
+            return solicitud.getPublicacion().getGenerador().getNombreCompleto();
+        }
+        return solicitud.getRecolector() == null ? null : solicitud.getRecolector().getNombreCompleto();
     }
 
     private void validarPeriodo(LocalDate desde, LocalDate hasta) {
