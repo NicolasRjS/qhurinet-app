@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 
 @Service
@@ -26,9 +27,22 @@ public class PuntoReciclajeServiceImpl implements PuntoReciclajeService {
         if (type != null && !TIPOS.contains(type)) {
             throw new IllegalArgumentException("type: debe ser uno de " + String.join(", ", TIPOS));
         }
-        // PENDIENTE (query): puntos que aceptan alguno de los materiales, del tipo indicado y cuyo nombre o
-        // direccion contengan q (END-34). La distancia requiere la ubicacion del usuario, que END-34 no recibe.
-        throw new UnsupportedOperationException("END-34 pendiente: falta la consulta de puntos de reciclaje");
+
+        String textoBuscado = q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
+        return puntoReciclajeRepositorio.findAll()
+                .stream()
+                .filter(punto -> material == null || material.isEmpty()
+                        || punto.getMateriales().stream()
+                        .anyMatch(categoria -> material.contains(categoria.getId())))
+                .filter(punto -> type == null || type.equals(punto.getTipo()))
+                .filter(punto -> textoBuscado == null || contiene(punto.getNombre(), textoBuscado)
+                        || contiene(punto.getDireccion(), textoBuscado))
+                .map(punto -> modelMapper.map(punto, PuntoReciclajeDTO.class))
+                .toList();
+    }
+
+    private boolean contiene(String valor, String textoBuscado) {
+        return valor != null && valor.toLowerCase(Locale.ROOT).contains(textoBuscado);
     }
 
     @Override

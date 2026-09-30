@@ -91,8 +91,12 @@ public class TicketSoporteServiceImpl implements TicketSoporteService {
             throw new IllegalArgumentException("estado: debe ser abierto o cerrado");
         }
         Usuario usuario = usuarioService.obtenerUsuario(email);
-        // PENDIENTE (query): tickets del usuario, filtrados por estado si viene, ordenados por fecha_creacion DESC (END-47)
-        throw new UnsupportedOperationException("END-47 pendiente: falta la consulta de tickets del usuario " + usuario.getId());
+        List<TicketSoporte> tickets = estado == null
+                ? ticketSoporteRepositorio.findByUsuario_IdOrderByFechaCreacionDesc(usuario.getId())
+                : ticketSoporteRepositorio.findByUsuario_IdAndEstadoOrderByFechaCreacionDesc(usuario.getId(), estado);
+        return tickets.stream()
+                .map(this::aDTO)
+                .toList();
     }
 
     @Transactional

@@ -3,6 +3,7 @@ package com.upc.qhurinet.serviceimpl;
 import com.upc.qhurinet.dtos.*;
 import com.upc.qhurinet.entities.CategoriaMaterial;
 import com.upc.qhurinet.entities.PublicacionMaterial;
+import com.upc.qhurinet.entities.SolicitudRecoleccion;
 import com.upc.qhurinet.entities.Usuario;
 import com.upc.qhurinet.repositories.PublicacionMaterialRepositorio;
 import com.upc.qhurinet.services.AlmacenamientoService;
@@ -19,7 +20,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Service
@@ -93,17 +97,62 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
     @Override
     public List<PublicacionDTO> listarParaMapa(Integer material, String distrito, String q,
                                                BigDecimal minKg, LocalDate fecha, String estado) {
-        // PENDIENTE (query): publicaciones 'disponible' filtradas por categoria, distrito/direccion (q),
-        // cantidad minima y fecha de disponibilidad (END-16). Luego mapear a PublicacionDTO.
-        throw new UnsupportedOperationException("END-16 pendiente: falta la consulta de publicaciones del mapa");
+        List<String> estados = List.of(DISPONIBLE, RESERVADO, RECOLECTADO, CANCELADO);
+        if (estado != null && !estados.contains(estado)) {
+            throw new IllegalArgumentException("estado: debe ser uno de " + String.join(", ", estados));
+        }
+
+        String distritoBuscado = distrito == null || distrito.isBlank() ? null : distrito.trim();
+        String textoBuscado = q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
+        return publicacionMaterialRepositorio.findByEstado(DISPONIBLE)
+                .stream()
+                .filter(publicacion -> estado == null || DISPONIBLE.equals(estado))
+                .filter(publicacion -> material == null || publicacion.getCategoriaMaterial().getId().equals(material))
+                .filter(publicacion -> distritoBuscado == null || publicacion.getDistrito() != null
+                        && publicacion.getDistrito().equalsIgnoreCase(distritoBuscado))
+                .filter(publicacion -> textoBuscado == null || contiene(publicacion.getDireccion(), textoBuscado)
+                        || contiene(publicacion.getDistrito(), textoBuscado))
+                .filter(publicacion -> minKg == null || publicacion.getCantidad().compareTo(minKg) >= 0)
+                .filter(publicacion -> fecha == null || fecha.equals(publicacion.getFechaDisponibilidad()))
+                .map(publicacion -> modelMapper.map(publicacion, PublicacionDTO.class))
+                .toList();
     }
 
     @Override
     public List<MiPublicacionDTO> listarMisPublicaciones(String email, String estado) {
         Usuario generador = usuarioService.obtenerUsuario(email);
-        // PENDIENTE (query): publicaciones del generador con el reciclador y la fecha coordinada de su solicitud,
-        // ordenadas por fecha_publicacion DESC. estado = activos | completados | cancelados (END-17).
-        throw new UnsupportedOperationException("END-17 pendiente: falta la consulta de publicaciones del generador " + generador.getId());
+        if (estado != null && !List.of("activos", "completados", "cancelados").contains(estado)) {
+            throw new IllegalArgumentException("estado: debe ser activos, completados o cancelados");
+        }
+
+        List<PublicacionMaterial> publicaciones = publicacionMaterialRepositorio
+                .findByGenerador_IdOrderByFechaPublicacionDesc(generador.getId());
+        List<SolicitudRecoleccion> solicitudes = publicacionMaterialRepositorio
+                .buscarSolicitudesVigentesPorGenerador(generador.getId());
+        Map<Long, SolicitudRecoleccion> solicitudesPorPublicacion = new HashMap<>();
+        for (SolicitudRecoleccion solicitud : solicitudes) {
+            solicitudesPorPublicacion.putIfAbsent(solicitud.getPublicacion().getId(), solicitud);
+        }
+
+        return publicaciones.stream()
+                .filter(publicacion -> estado == null || "activos".equals(estado)
+                        && (DISPONIBLE.equals(publicacion.getEstado()) || RESERVADO.equals(publicacion.getEstado()))
+                        || "completados".equals(estado) && RECOLECTADO.equals(publicacion.getEstado())
+                        || "cancelados".equals(estado) && CANCELADO.equals(publicacion.getEstado()))
+                .map(publicacion -> {
+                    SolicitudRecoleccion solicitud = solicitudesPorPublicacion.get(publicacion.getId());
+                    String reciclador = solicitud == null || solicitud.getRecolector() == null
+                            ? null : solicitud.getRecolector().getNombreCompleto();
+                    return new MiPublicacionDTO(publicacion.getId(), publicacion.getCantidad(),
+                            publicacion.getCategoriaMaterial().getNombre(), publicacion.getFechaPublicacion(),
+                            publicacion.getEstado(), reciclador,
+                            solicitud == null ? null : solicitud.getFechaCoordinada());
+                })
+                .toList();
+    }
+
+    private boolean contiene(String valor, String textoBuscado) {
+        return valor != null && valor.toLowerCase(Locale.ROOT).contains(textoBuscado);
     }
 
     @Transactional
