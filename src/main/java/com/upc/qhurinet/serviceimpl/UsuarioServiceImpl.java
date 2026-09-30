@@ -2,8 +2,11 @@ package com.upc.qhurinet.serviceimpl;
 
 import com.upc.qhurinet.dtos.*;
 import com.upc.qhurinet.entities.Rol;
+import com.upc.qhurinet.entities.SolicitudRecoleccion;
 import com.upc.qhurinet.entities.Usuario;
 import com.upc.qhurinet.repositories.UsuarioRepositorio;
+import com.upc.qhurinet.repositories.DocumentoVerificacionRepositorio;
+import com.upc.qhurinet.repositories.SolicitudRecoleccionRepositorio;
 import com.upc.qhurinet.security.util.JwtUtil;
 import com.upc.qhurinet.services.AlmacenamientoService;
 import com.upc.qhurinet.services.RolService;
@@ -16,6 +19,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -50,6 +55,10 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Autowired
     private UsuarioRepositorio usuarioRepositorio;
+    @Autowired
+    private SolicitudRecoleccionRepositorio solicitudRecoleccionRepositorio;
+    @Autowired
+    private DocumentoVerificacionRepositorio documentoVerificacionRepositorio;
     @Autowired
     private RolService rolService;
     @Autowired
@@ -189,10 +198,19 @@ public class UsuarioServiceImpl implements UsuarioService {
     public ReputacionUsuarioDTO obtenerReputacion(Long id) {
         Usuario usuario = usuarioRepositorio.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado"));
-        // PENDIENTE (query): total de solicitudes 'ejecutada' donde el usuario es recolector y si tiene
-        // algun documento 'aprobado'. Con eso: new ReputacionUsuarioDTO(usuario.getId(), usuario.getNombreCompleto(),
-        // usuario.getFotoPerfilUrl(), calificacionPromedio o null si no tiene entregas calificadas (US 10-EP2), total, verificado)
-        throw new UnsupportedOperationException("END-12 pendiente: falta la consulta de entregas y documentos del usuario " + usuario.getId());
+        List<SolicitudRecoleccion> entregas = solicitudRecoleccionRepositorio.findByRecolector_IdAndEstado(
+                usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA);
+        List<SolicitudRecoleccion> calificadas = entregas.stream()
+                .filter(solicitud -> solicitud.getCalificacionRecolector() != null)
+                .toList();
+        BigDecimal promedio = calificadas.isEmpty() ? null : calificadas.stream()
+                .map(solicitud -> BigDecimal.valueOf(solicitud.getCalificacionRecolector()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(calificadas.size()), 2, RoundingMode.HALF_UP);
+        boolean verificado = !documentoVerificacionRepositorio.findByUsuario_IdAndEstado(
+                usuario.getId(), DocumentoVerificacionServiceImpl.ESTADO_APROBADO).isEmpty();
+        return new ReputacionUsuarioDTO(usuario.getId(), usuario.getNombreCompleto(),
+                usuario.getFotoPerfilUrl(), promedio, (long) entregas.size(), verificado);
     }
 
     @Override

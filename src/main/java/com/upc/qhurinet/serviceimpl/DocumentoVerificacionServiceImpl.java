@@ -54,8 +54,9 @@ public class DocumentoVerificacionServiceImpl implements DocumentoVerificacionSe
     @Override
     public List<DocumentoVerificacionDTO> listarMisDocumentos(String email) {
         Usuario usuario = usuarioService.obtenerUsuario(email);
-        // PENDIENTE (query): documentos del usuario ordenados por fecha_subida DESC.
-        // Luego: .stream().map(documento -> modelMapper.map(documento, DocumentoVerificacionDTO.class)).toList()
-        throw new UnsupportedOperationException("END-11 pendiente: falta la consulta de documentos del usuario " + usuario.getId());
+        return documentoVerificacionRepositorio.findByUsuario_IdOrderByFechaSubidaDesc(usuario.getId())
+                .stream()
+                .map(documento -> modelMapper.map(documento, DocumentoVerificacionDTO.class))
+                .toList();
     }
 }

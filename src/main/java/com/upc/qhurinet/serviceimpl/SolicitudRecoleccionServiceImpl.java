@@ -6,6 +6,7 @@ import com.upc.qhurinet.entities.SolicitudRecoleccion;
 import com.upc.qhurinet.entities.Usuario;
 import com.upc.qhurinet.repositories.PublicacionMaterialRepositorio;
 import com.upc.qhurinet.repositories.SolicitudRecoleccionRepositorio;
+import com.upc.qhurinet.repositories.UsuarioRepositorio;
 import com.upc.qhurinet.services.NotificacionService;
 import com.upc.qhurinet.services.PublicacionMaterialService;
 import com.upc.qhurinet.services.SolicitudRecoleccionService;
@@ -16,6 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,6 +44,8 @@ public class SolicitudRecoleccionServiceImpl implements SolicitudRecoleccionServ
     private SolicitudRecoleccionRepositorio solicitudRecoleccionRepositorio;
     @Autowired
     private PublicacionMaterialRepositorio publicacionMaterialRepositorio;
+    @Autowired
+    private UsuarioRepositorio usuarioRepositorio;
     @Autowired
     private PublicacionMaterialService publicacionMaterialService;
     @Autowired
@@ -79,9 +84,20 @@ public class SolicitudRecoleccionServiceImpl implements SolicitudRecoleccionServ
     @Override
     public List<MiSolicitudDTO> listarMisSolicitudes(String email, String estado) {
         Usuario usuario = usuarioService.obtenerUsuario(email);
-        // PENDIENTE (query): recojos del usuario con material, direccion, contraparte y fecha coordinada,
-        // ordenados por prioritaria DESC y fecha_coordinada (US 13-EP2). estado = activos | completados | cancelados.
-        throw new UnsupportedOperationException("END-23 pendiente: falta la consulta de recojos del usuario " + usuario.getId());
+        if (estado != null && !List.of("activos", "completados", "cancelados").contains(estado)) {
+            throw new IllegalArgumentException("estado: debe ser activos, completados o cancelados");
+        }
+        return solicitudRecoleccionRepositorio.findByRecolector_IdOrderByPrioritariaDescFechaCoordinadaAsc(usuario.getId())
+                .stream()
+                .filter(solicitud -> estado == null
+                        || ("activos".equals(estado) && REPROGRAMABLES.contains(solicitud.getEstado()))
+                        || ("completados".equals(estado) && EJECUTADA.equals(solicitud.getEstado()))
+                        || ("cancelados".equals(estado) && CANCELADA.equals(solicitud.getEstado())))
+                .map(solicitud -> new MiSolicitudDTO(solicitud.getId(), solicitud.getPublicacion().getCantidad(),
+                        nombreMaterial(solicitud), solicitud.getPublicacion().getDireccion(), solicitud.getEstado(),
+                        solicitud.isPrioritaria(), solicitud.getPublicacion().getGenerador().getNombreCompleto(),
+                        solicitud.getFechaCoordinada()))
+                .toList();
     }
 
     @Transactional
@@ -215,10 +231,19 @@ public class SolicitudRecoleccionServiceImpl implements SolicitudRecoleccionServ
         if (solicitud.getCalificacionRecolector() != null) {
             throw new IllegalStateException("La recolección ya fue calificada");
         }
-        // PENDIENTE (query): guardar la calificacion y, en la misma transaccion, recalcular
-        // usuarios.calificacion_promedio del recolector con el AVG de sus solicitudes calificadas (US 11-EP2).
-        // Luego: return new CalificacionDTO(calificacion, recolector.getCalificacionPromedio())
-        throw new UnsupportedOperationException("END-30 pendiente: falta la consulta del promedio del recolector");
+        solicitud.setCalificacionRecolector(calificacion);
+        solicitudRecoleccionRepositorio.save(solicitud);
+
+        Usuario recolector = solicitud.getRecolector();
+        List<SolicitudRecoleccion> calificadas = solicitudRecoleccionRepositorio.buscarCalificadasPorRecolector(
+                recolector.getId(), EJECUTADA);
+        BigDecimal promedio = calificadas.stream()
+                .map(calificada -> BigDecimal.valueOf(calificada.getCalificacionRecolector()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(calificadas.size()), 2, RoundingMode.HALF_UP);
+        recolector.setCalificacionPromedio(promedio);
+        usuarioRepositorio.save(recolector);
+        return new CalificacionDTO(calificacion, promedio);
     }
 
     @Override
