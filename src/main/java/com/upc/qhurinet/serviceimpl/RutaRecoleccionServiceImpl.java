@@ -102,8 +102,11 @@ public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
     @Override
     public List<RutaResumenDTO> listarMisRutas(String email) {
         Usuario recolector = usuarioService.obtenerUsuario(email);
-        // PENDIENTE (query): rutas del recolector con su numero de paradas, ordenadas por fecha_creacion DESC (END-38)
-        throw new UnsupportedOperationException("END-38 pendiente: falta la consulta de rutas del recolector " + recolector.getId());
+        return rutaRecoleccionRepositorio.findByRecolector_IdOrderByFechaCreacionDesc(recolector.getId())
+                .stream()
+                .map(ruta -> new RutaResumenDTO(ruta.getId(), ruta.getNombre(), ruta.getDescripcion(),
+                        ruta.getDistanciaTotalKm(), ruta.getTiempoEstimadoMin(), (long) ruta.getParadas().size()))
+                .toList();
     }
 
     @Override
