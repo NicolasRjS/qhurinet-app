@@ -31,8 +31,10 @@ public class TicketSoporteServiceImpl implements TicketSoporteService {
     private static final int ASUNTO_MAX = 150;   // tickets_soporte.asunto varchar(150)
     private static final String CARPETA_EVIDENCIAS = "evidencias_tickets";
     private static final List<String> FORMATOS_IMAGEN = List.of("jpg", "jpeg", "png", "webp"); // US 12-EP2
-    // DEMO: contenido provisional
+    // Contenido basado en los flujos implementados (US 38).
     private static final List<FaqDTO> FAQS = List.of(
+            new FaqDTO("¿Qué hago si la contraparte no llega?", "Escribe en el chat; puedes reprogramar o cancelar una recolección abierta. Si hay un problema, crea un ticket."),
+            new FaqDTO("¿Quién recoge el material?", "Solo el recolector asignado puede confirmar tu entrega. Consulta su perfil y reputación desde la recolección."),
             new FaqDTO("¿Cómo publico material reciclable?",
                     "Inicia sesión como generador con una cuenta activa y publica una categoría, cantidad, dirección y fecha de disponibilidad. Cada publicación corresponde a un solo material."),
             new FaqDTO("¿Cómo reclamo un anuncio?",
@@ -134,7 +136,7 @@ public class TicketSoporteServiceImpl implements TicketSoporteService {
     @Override
     public ContactoSoporteDTO obtenerContacto() {
         if (telefonoSoporte.isBlank() || horarioSoporte.isBlank()) {
-            throw new UnsupportedOperationException("END-49 pendiente: configurar soporte.telefono y soporte.horario");
+            throw new org.springframework.web.client.RestClientException("Contacto de soporte no configurado");
         }
         return new ContactoSoporteDTO(telefonoSoporte, horarioSoporte);
     }

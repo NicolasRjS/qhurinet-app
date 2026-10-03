@@ -39,7 +39,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         return org.springframework.security.core.userdetails.User
                 .withUsername(usuario.getEmail())
-                .password(usuario.getPasswordHash())
+                .password(usuario.getPasswordHash() == null ? "!sin-clave-local" : usuario.getPasswordHash())
                 .authorities(authorities)
                 .build();
     }

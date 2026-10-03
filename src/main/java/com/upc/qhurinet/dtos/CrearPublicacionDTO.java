@@ -24,4 +24,8 @@ public class CrearPublicacionDTO {
     private BigDecimal latitud;
     private BigDecimal longitud;
     private LocalDate fechaDisponibilidad;
+    private String franjaHoraria;
+    private BigDecimal montoPago;
+    private String metodoPago;
+
 }

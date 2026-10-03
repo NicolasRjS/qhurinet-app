@@ -22,4 +22,19 @@ public class MiSolicitudDTO {
     private Boolean prioritaria;
     private String contraparte;
     private LocalDateTime fechaCoordinada;
+    public MiSolicitudDTO(Long id, BigDecimal cantidad, String material, String direccion, String estado, Boolean prioritaria, String contraparte, LocalDateTime fechaCoordinada) {
+        this.id = id;
+        this.cantidad = cantidad;
+        this.material = material;
+        this.direccion = direccion;
+        this.estado = estado;
+        this.prioritaria = prioritaria;
+        this.contraparte = contraparte;
+        this.fechaCoordinada = fechaCoordinada;
+    }
+
+    private Long publicacionId;
+    private String franjaHoraria;
+    private String unidadMedida;
+
 }

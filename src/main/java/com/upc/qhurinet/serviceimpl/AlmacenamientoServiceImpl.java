@@ -1,51 +1,121 @@
 package com.upc.qhurinet.serviceimpl;
 
 import com.upc.qhurinet.services.AlmacenamientoService;
-import org.springframework.beans.factory.annotation.Value;
+import com.upc.qhurinet.repositories.*;
+import org.springframework.beans.factory.annotation.*;
+import org.springframework.core.io.*;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.List;
-import java.util.UUID;
+import org.springframework.transaction.support.*;
+import java.io.*;
+import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @Service
 public class AlmacenamientoServiceImpl implements AlmacenamientoService {
-
-    @Value("${almacenamiento.ruta}")
-    private String rutaBase;
-
+    @Value("${almacenamiento.ruta}") private String rutaBase;
+    @Autowired private UsuarioRepositorio usuarios;
+    @Autowired private PublicacionMaterialRepositorio publicaciones;
+    @Autowired private DocumentoVerificacionRepositorio documentos;
+    @Autowired private TicketSoporteRepositorio tickets;
+    private static final List<String> CARPETAS = List.of("fotos_perfil", "fotos_publicaciones", "documentos_verificacion", "evidencias_tickets");
     @Override
-    public String guardar(MultipartFile archivo, String carpeta, List<String> extensionesPermitidas) {
-        if (archivo == null || archivo.isEmpty()) {
-            throw new IllegalArgumentException("archivo: es obligatorio");
-        }
-        String extension = obtenerExtension(archivo.getOriginalFilename());
-        if (!extensionesPermitidas.contains(extension)) {
-            throw new IllegalArgumentException("archivo: formato no admitido. Formatos permitidos: "
-                    + String.join(", ", extensionesPermitidas));
-        }
-        // Nombre generado por el servidor: evita colisiones y rutas manipuladas por el cliente
-        String nombreArchivo = UUID.randomUUID() + "." + extension;
-        Path directorio = Paths.get(rutaBase, carpeta);
-        try (InputStream contenido = archivo.getInputStream()) {
-            Files.createDirectories(directorio);
-            Files.copy(contenido, directorio.resolve(nombreArchivo), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new RuntimeException("No se pudo guardar el archivo", e);
-        }
-        return rutaBase + "/" + carpeta + "/" + nombreArchivo;
+    public String validar(MultipartFile archivo, List<String> extensiones) {
+        if (archivo == null || archivo.isEmpty()) throw new IllegalArgumentException("archivo: es obligatorio");
+        if (archivo.getSize() > 5 * 1024 * 1024) throw new IllegalArgumentException("archivo: máximo 5 MB");
+        String extension = extension(archivo.getOriginalFilename());
+        if (!extensiones.contains(extension)) throw new IllegalArgumentException("archivo: formato no admitido");
+        try {
+            byte[] b = archivo.getBytes();
+            boolean valido = switch (extension) {
+                case "jpg", "jpeg", "png" -> imagenValida(b, extension);
+                case "webp" -> b.length >= 20 && new String(b, 0, 4, StandardCharsets.US_ASCII).equals("RIFF")
+                        && new String(b, 8, 4, StandardCharsets.US_ASCII).equals("WEBP")
+                        && Integer.toUnsignedLong(java.nio.ByteBuffer.wrap(b, 4, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt()) + 8 == b.length;
+                case "pdf" -> pdfValido(b);
+                default -> false;
+            };
+            if (!valido) throw new IllegalArgumentException("archivo: contenido no corresponde al formato");
+            return tipo(extension);
+        } catch (IOException ex) { throw new IllegalArgumentException("archivo: no se pudo leer"); }
     }
-
-    private String obtenerExtension(String nombreOriginal) {
-        if (nombreOriginal == null || !nombreOriginal.contains(".")) {
-            return "";
+    private boolean imagenValida(byte[] bytes, String extension) throws IOException {
+        try (var stream = javax.imageio.ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            var readers = javax.imageio.ImageIO.getImageReaders(stream);
+            if (!readers.hasNext()) return false;
+            var reader = readers.next();
+            try {
+                reader.setInput(stream);
+                String formato = reader.getFormatName().toLowerCase(Locale.ROOT);
+                if (!("png".equals(extension) ? "png".equals(formato) : "jpeg".equals(formato) || "jpg".equals(formato))) return false;
+                if ((long) reader.getWidth(0) * reader.getHeight(0) > 25000000L) return false;
+                return reader.read(0) != null;
+            } finally { reader.dispose(); }
         }
-        return nombreOriginal.substring(nombreOriginal.lastIndexOf('.') + 1).toLowerCase();
+    }
+    private boolean pdfValido(byte[] bytes) {
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) { return pdf.getNumberOfPages() > 0 && !pdf.isEncrypted(); }
+        catch (IOException ex) { return false; }
+    }
+    @Override
+    public String guardar(MultipartFile archivo, String carpeta, List<String> extensiones) {
+        validar(archivo, extensiones);
+        if (!CARPETAS.contains(carpeta)) throw new IllegalArgumentException("carpeta: no admitida");
+        String nombre = UUID.randomUUID() + "." + extension(archivo.getOriginalFilename());
+        Path raiz = Paths.get(rutaBase).toAbsolutePath().normalize();
+        Path destino = raiz.resolve(carpeta).resolve(nombre).normalize();
+        try {
+            Files.createDirectories(destino.getParent());
+            if (!destino.getParent().toRealPath().startsWith(raiz.toRealPath())) throw new AccessDeniedException("Ruta no admitida");
+            Files.write(destino, archivo.getBytes(), StandardOpenOption.CREATE_NEW);
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int estado) {
+                        if (estado != STATUS_COMMITTED) {
+                            try { Files.deleteIfExists(destino); } catch (IOException ignored) { }
+                        }
+                    }
+                });
+            }
+            return "/api/v1/files/" + carpeta + "--" + nombre;
+        } catch (IOException ex) { throw new UncheckedIOException("No se pudo guardar el archivo", ex); }
+    }
+    @Override
+    public Resource obtener(String email, String id) {
+        if (id == null || !id.matches("[a-z_]+--[0-9a-fA-F-]{36}\\.(png|jpg|jpeg|webp|pdf)")) throw new NoSuchElementException("Archivo no encontrado");
+        String[] partes = id.split("--", 2);
+        if (!CARPETAS.contains(partes[0])) throw new NoSuchElementException("Archivo no encontrado");
+        String url = "/api/v1/files/" + id;
+        boolean encontrado;
+        switch (partes[0]) {
+            case "fotos_perfil" -> encontrado = !usuarios.findByFotoPerfilUrl(url).isEmpty();
+            case "fotos_publicaciones" -> encontrado = !publicaciones.findByFotoUrl(url).isEmpty();
+            case "documentos_verificacion" -> {
+                var doc = documentos.findByUrlArchivo(url).orElseThrow(() -> new NoSuchElementException("Archivo no encontrado"));
+                if (!doc.getUsuario().getEmail().equals(email)) throw new AccessDeniedException("Documento privado");
+                encontrado = true;
+            }
+            default -> {
+                var ticket = tickets.findByEvidenciaUrl(url).orElseThrow(() -> new NoSuchElementException("Archivo no encontrado"));
+                if (!ticket.getUsuario().getEmail().equals(email)) throw new AccessDeniedException("Evidencia privada");
+                encontrado = true;
+            }
+        }
+        if (!encontrado) throw new NoSuchElementException("Archivo no encontrado");
+        Path raiz = Paths.get(rutaBase).toAbsolutePath().normalize();
+        Path archivo = raiz.resolve(partes[0]).resolve(partes[1]).normalize();
+        try {
+            if (!Files.isRegularFile(archivo) || !archivo.toRealPath().startsWith(raiz.toRealPath())) throw new NoSuchElementException("Archivo no encontrado");
+            return new FileSystemResource(archivo);
+        } catch (IOException ex) { throw new NoSuchElementException("Archivo no encontrado"); }
+    }
+    @Override public String tipo(String extension) {
+        return switch (extension) { case "jpg", "jpeg" -> "image/jpeg"; case "png" -> "image/png";
+            case "webp" -> "image/webp"; case "pdf" -> "application/pdf"; default -> "application/octet-stream"; };
+    }
+    private String extension(String nombre) {
+        return nombre == null || !nombre.contains(".") ? "" : nombre.substring(nombre.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
     }
 }

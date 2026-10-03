@@ -31,4 +31,8 @@ public class PublicacionDTO {
     private LocalDateTime fechaPublicacion;
     private Long generadorId;
     private String generadorNombreCompleto;
+    private String franjaHoraria;
+    private BigDecimal montoPago;
+    private String metodoPago;
+
 }

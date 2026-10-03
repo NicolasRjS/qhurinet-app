@@ -60,9 +60,18 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Transactional
     @Override
     public void notificar(Usuario usuario, String mensaje) {
+        // El motivo puede contener datos personales: no copiarlos al aviso (US 15).
+        mensaje = mensaje.replaceAll("[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}", "[correo omitido]")
+                .replaceAll("(?<!\\d)(?:\\+?\\d[ ().-]*){9,15}(?!\\d)", "[teléfono omitido]");
         Notificacion notificacion = new Notificacion();
         notificacion.setUsuario(usuario);
-        notificacion.setMensaje(mensaje);
+        notificacion.setMensaje(mensaje.length() > 255 ? mensaje.substring(0, 252) + "..." : mensaje);
         notificacionRepositorio.save(notificacion);
     }
+    @Override @Transactional
+    public void marcarTodas(String email) {
+        usuarioService.obtenerUsuario(email).getNotificaciones().stream().filter(n -> !n.isLeida())
+                .forEach(n -> { n.setLeida(true); notificacionRepositorio.save(n); });
+    }
+
 }

@@ -31,23 +31,24 @@ public class PuntoReciclajeServiceImpl implements PuntoReciclajeService {
         String textoBuscado = q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
         return puntoReciclajeRepositorio.findAll()
                 .stream()
+                .filter(PuntoReciclaje::isActivo)
                 .filter(punto -> material == null || material.isEmpty()
                         || punto.getMateriales().stream()
                         .anyMatch(categoria -> material.contains(categoria.getId())))
                 .filter(punto -> type == null || type.equals(punto.getTipo()))
                 .filter(punto -> textoBuscado == null || contiene(punto.getNombre(), textoBuscado)
                         || contiene(punto.getDireccion(), textoBuscado))
-                .map(punto -> modelMapper.map(punto, PuntoReciclajeDTO.class))
+                .map(punto -> aDTO(punto))
                 .toList();
     }
 
     private boolean contiene(String valor, String textoBuscado) {
-        return valor != null && valor.toLowerCase(Locale.ROOT).contains(textoBuscado);
+        return valor != null && normalizar(valor).contains(normalizar(textoBuscado));
     }
 
     @Override
     public PuntoReciclajeDTO buscarPorId(Long id) {
-        return modelMapper.map(obtenerPunto(id), PuntoReciclajeDTO.class);
+        return aDTO(obtenerPunto(id));
     }
 
     @Override
@@ -55,4 +56,15 @@ public class PuntoReciclajeServiceImpl implements PuntoReciclajeService {
         return puntoReciclajeRepositorio.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Punto de reciclaje no encontrado: " + id));
     }
+    private String normalizar(String texto) {
+        return java.text.Normalizer.normalize(texto.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+    }
+
+    private PuntoReciclajeDTO aDTO(PuntoReciclaje punto) {
+        PuntoReciclajeDTO dto = modelMapper.map(punto, PuntoReciclajeDTO.class);
+        if (dto.getCalificacionPromedio() != null && dto.getCalificacionPromedio().signum() == 0) dto.setCalificacionPromedio(null);
+        return dto;
+    }
+
 }

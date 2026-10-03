@@ -49,6 +49,8 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
     private AlmacenamientoService almacenamientoService;
     @Autowired
     private ModelMapper modelMapper;
+    @Autowired
+    private com.upc.qhurinet.services.DisponibilidadService disponibilidadService;
 
     @Transactional
     @Override
@@ -62,6 +64,9 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
         if (crearPublicacionDTO.getLatitud() == null || crearPublicacionDTO.getLongitud() == null) {
             errores.add("latitud y longitud: son obligatorias");
         }
+        disponibilidadService.validarFranja(crearPublicacionDTO.getFranjaHoraria(), errores);
+        validarPago(crearPublicacionDTO.getMontoPago(), crearPublicacionDTO.getMetodoPago(), errores);
+        validarCoordenadas(crearPublicacionDTO.getLatitud(), crearPublicacionDTO.getLongitud(), errores);
         if (!errores.isEmpty()) {
             throw new IllegalArgumentException(String.join(", ", errores));
         }
@@ -80,12 +85,19 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
         publicacion.setUnidadMedida(crearPublicacionDTO.getUnidadMedida() == null || crearPublicacionDTO.getUnidadMedida().isBlank()
                 ? categoria.getUnidadMedidaDefault() : crearPublicacionDTO.getUnidadMedida());
         publicacion.setDescripcion(crearPublicacionDTO.getDescripcion());
-        publicacion.setFotoUrl(crearPublicacionDTO.getFotoUrl());
+        if (crearPublicacionDTO.getFotoUrl() != null && !crearPublicacionDTO.getFotoUrl().isBlank()) {
+            throw new IllegalArgumentException("fotoUrl: use la carga de foto de la publicación");
+        }
         publicacion.setDireccion(crearPublicacionDTO.getDireccion().trim());
         publicacion.setDistrito(crearPublicacionDTO.getDistrito());
         publicacion.setLatitud(crearPublicacionDTO.getLatitud());
         publicacion.setLongitud(crearPublicacionDTO.getLongitud());
         publicacion.setFechaDisponibilidad(crearPublicacionDTO.getFechaDisponibilidad());
+        publicacion.setFranjaHoraria(crearPublicacionDTO.getFranjaHoraria());
+        publicacion.setMontoPago(crearPublicacionDTO.getMontoPago());
+        publicacion.setMetodoPago(crearPublicacionDTO.getMetodoPago() == null && crearPublicacionDTO.getMontoPago() != null
+                ? generador.getMetodoPagoPreferido() : crearPublicacionDTO.getMetodoPago());
+        validarUnidad(publicacion.getUnidadMedida());
         return modelMapper.map(publicacionMaterialRepositorio.save(publicacion), PublicacionDTO.class);
     }
 
@@ -101,6 +113,9 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
         if (estado != null && !estados.contains(estado)) {
             throw new IllegalArgumentException("estado: debe ser uno de " + String.join(", ", estados));
         }
+        if (minKg != null && minKg.signum() < 0) {
+            throw new IllegalArgumentException("min_kg: no puede ser negativo");
+        }
 
         String distritoBuscado = distrito == null || distrito.isBlank() ? null : distrito.trim();
         String textoBuscado = q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
@@ -112,7 +127,7 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
                         && publicacion.getDistrito().equalsIgnoreCase(distritoBuscado))
                 .filter(publicacion -> textoBuscado == null || contiene(publicacion.getDireccion(), textoBuscado)
                         || contiene(publicacion.getDistrito(), textoBuscado))
-                .filter(publicacion -> minKg == null || publicacion.getCantidad().compareTo(minKg) >= 0)
+                .filter(publicacion -> cumpleCantidadMinima(publicacion, minKg))
                 .filter(publicacion -> fecha == null || fecha.equals(publicacion.getFechaDisponibilidad()))
                 .map(publicacion -> modelMapper.map(publicacion, PublicacionDTO.class))
                 .toList();
@@ -143,10 +158,14 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
                     SolicitudRecoleccion solicitud = solicitudesPorPublicacion.get(publicacion.getId());
                     String reciclador = solicitud == null || solicitud.getRecolector() == null
                             ? null : solicitud.getRecolector().getNombreCompleto();
-                    return new MiPublicacionDTO(publicacion.getId(), publicacion.getCantidad(),
+                    MiPublicacionDTO dto = new MiPublicacionDTO(publicacion.getId(), publicacion.getCantidad(),
                             publicacion.getCategoriaMaterial().getNombre(), publicacion.getFechaPublicacion(),
                             publicacion.getEstado(), reciclador,
                             solicitud == null ? null : solicitud.getFechaCoordinada());
+                    dto.setSolicitudId(solicitud == null ? null : solicitud.getId());
+                    dto.setFranjaHoraria(solicitud == null ? publicacion.getFranjaHoraria() : solicitud.getFranjaHoraria());
+                    dto.setUnidadMedida(publicacion.getUnidadMedida());
+                    return dto;
                 })
                 .toList();
     }
@@ -155,12 +174,28 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
         return valor != null && valor.toLowerCase(Locale.ROOT).contains(textoBuscado);
     }
 
+    private boolean cumpleCantidadMinima(PublicacionMaterial publicacion, BigDecimal minKg) {
+        if (minKg == null) return true;
+        BigDecimal kilos = switch (publicacion.getUnidadMedida()) {
+            case "kg" -> publicacion.getCantidad();
+            case "g" -> publicacion.getCantidad().movePointLeft(3);
+            case "t" -> publicacion.getCantidad().movePointRight(3);
+            default -> null;
+        };
+        return kilos != null && kilos.compareTo(minKg) >= 0;
+    }
+
     @Transactional
     @Override
     public PublicacionDTO editar(String email, Long id, EditarPublicacionDTO editarPublicacionDTO) {
         List<String> errores = new ArrayList<>();
         validarCampos(editarPublicacionDTO.getCantidad(), editarPublicacionDTO.getDireccion(),
                 editarPublicacionDTO.getFechaDisponibilidad(), editarPublicacionDTO.getDescripcion(), errores);
+        disponibilidadService.validarFranja(editarPublicacionDTO.getFranjaHoraria(), errores);
+        validarPago(editarPublicacionDTO.getMontoPago(), editarPublicacionDTO.getMetodoPago(), errores);
+        if (editarPublicacionDTO.getLatitud() != null || editarPublicacionDTO.getLongitud() != null) {
+            validarCoordenadas(editarPublicacionDTO.getLatitud(), editarPublicacionDTO.getLongitud(), errores);
+        }
         if (!errores.isEmpty()) {
             throw new IllegalArgumentException(String.join(", ", errores));
         }
@@ -172,17 +207,36 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
         publicacion.setDescripcion(editarPublicacionDTO.getDescripcion());
         publicacion.setDireccion(editarPublicacionDTO.getDireccion().trim());
         publicacion.setFechaDisponibilidad(editarPublicacionDTO.getFechaDisponibilidad());
+        publicacion.setFranjaHoraria(editarPublicacionDTO.getFranjaHoraria());
+        publicacion.setMontoPago(editarPublicacionDTO.getMontoPago());
+        publicacion.setMetodoPago(editarPublicacionDTO.getMetodoPago());
+        if (editarPublicacionDTO.getCategoriaMaterialId() != null) {
+            publicacion.setCategoriaMaterial(categoriaMaterialService.obtenerCategoria(editarPublicacionDTO.getCategoriaMaterialId()));
+        }
+        if (editarPublicacionDTO.getUnidadMedida() != null) {
+            validarUnidad(editarPublicacionDTO.getUnidadMedida());
+            publicacion.setUnidadMedida(editarPublicacionDTO.getUnidadMedida());
+        }
+        if (editarPublicacionDTO.getDistrito() != null) publicacion.setDistrito(editarPublicacionDTO.getDistrito());
+        if (editarPublicacionDTO.getLatitud() != null) {
+            publicacion.setLatitud(editarPublicacionDTO.getLatitud());
+            publicacion.setLongitud(editarPublicacionDTO.getLongitud());
+        }
         return modelMapper.map(publicacionMaterialRepositorio.save(publicacion), PublicacionDTO.class);
     }
 
     // US 09-EP2 criterio 8: el generador cancela su publicacion mientras no haya sido reclamada
     @Transactional
     @Override
-    public PublicacionDTO cancelar(String email, Long id) {
+    public PublicacionDTO cancelar(String email, Long id, CancelarSolicitudDTO datos) {
         PublicacionMaterial publicacion = obtenerPublicacionPropia(email, id);
         if (!DISPONIBLE.equals(publicacion.getEstado())) {
             throw new IllegalStateException("Solo se puede cancelar una publicación que no ha sido reclamada");
         }
+        if (datos != null && datos.getMotivo() != null && datos.getMotivo().length() > 500) {
+            throw new IllegalArgumentException("motivo: máximo 500 caracteres");
+        }
+        publicacion.setMotivoCancelacion(datos == null ? null : datos.getMotivo());
         publicacion.setEstado(CANCELADO);
         return modelMapper.map(publicacionMaterialRepositorio.save(publicacion), PublicacionDTO.class);
     }
@@ -191,6 +245,7 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
     @Override
     public FotoPublicacionDTO subirFoto(String email, Long id, MultipartFile archivo) {
         PublicacionMaterial publicacion = obtenerPublicacionPropia(email, id);
+        if (!DISPONIBLE.equals(publicacion.getEstado())) throw new IllegalStateException("La publicación no está disponible");
         String ruta = almacenamientoService.guardar(archivo, CARPETA_FOTOS, FORMATOS_IMAGEN);
         publicacion.setFotoUrl(ruta);
         publicacionMaterialRepositorio.save(publicacion);
@@ -205,7 +260,8 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
 
     // Solo el generador propietario puede editar, cancelar o cambiar la foto (US 01-EP1 criterio 13)
     private PublicacionMaterial obtenerPublicacionPropia(String email, Long id) {
-        PublicacionMaterial publicacion = obtenerPublicacion(id);
+        PublicacionMaterial publicacion = publicacionMaterialRepositorio.buscarParaActualizar(id)
+                .orElseThrow(() -> new NoSuchElementException("Publicación no encontrada"));
         if (!publicacion.getGenerador().getEmail().equals(email)) {
             throw new AccessDeniedException("Solo el generador propietario puede modificar la publicación");
         }
@@ -220,6 +276,10 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
         } else if (cantidad.compareTo(BigDecimal.ZERO) <= 0) {
             errores.add("cantidad: La cantidad debe ser mayor a cero");
         }
+        if (cantidad != null && (cantidad.precision() - cantidad.scale() > 6 || cantidad.scale() > 2)) {
+            errores.add("cantidad: máximo 6 enteros y 2 decimales");
+        }
+        if (direccion != null && direccion.length() > 255) errores.add("direccion: máximo 255 caracteres");
         if (direccion == null || direccion.isBlank()) {
             errores.add("direccion: es obligatoria");
         }
@@ -234,4 +294,26 @@ public class PublicacionMaterialServiceImpl implements PublicacionMaterialServic
             errores.add("descripcion: no admite contenido HTML");
         }
     }
+    private void validarPago(BigDecimal monto, String metodo, List<String> errores) {
+        if (monto != null && (monto.signum() <= 0 || monto.scale() > 2 || monto.precision() - monto.scale() > 8)) {
+            errores.add("montoPago: debe ser positivo, máximo 8 enteros y 2 decimales");
+        }
+        if (metodo != null && !UsuarioServiceImpl.METODOS_PAGO.contains(metodo)) errores.add("metodoPago: no admitido");
+        if (metodo != null && monto == null) errores.add("montoPago: obligatorio si se indica método");
+    }
+    private void validarCoordenadas(BigDecimal lat, BigDecimal lon, List<String> errores) {
+        if (lat == null || lon == null || lat.abs().compareTo(BigDecimal.valueOf(90)) > 0
+                || lon.abs().compareTo(BigDecimal.valueOf(180)) > 0) errores.add("coordenadas: fuera de rango o incompletas");
+    }
+    private void validarUnidad(String unidad) {
+        if (!List.of("kg", "g", "t", "unidad").contains(unidad)) throw new IllegalArgumentException("unidadMedida: debe ser kg, g, t o unidad");
+    }
+    @Override @Transactional
+    public void eliminarFoto(String email, Long id) {
+        PublicacionMaterial publicacion = obtenerPublicacionPropia(email, id);
+        if (!DISPONIBLE.equals(publicacion.getEstado())) throw new IllegalStateException("La publicación no está disponible");
+        publicacion.setFotoUrl(null);
+        publicacionMaterialRepositorio.save(publicacion);
+    }
+
 }

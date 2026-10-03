@@ -29,6 +29,8 @@ public class ReporteServiceImpl implements ReporteService {
     private SolicitudRecoleccionRepositorio solicitudRecoleccionRepositorio;
     @Autowired
     private UsuarioService usuarioService;
+    @Autowired
+    private com.upc.qhurinet.services.ReportePdfService reportePdfService;
 
     @Override
     public ResumenReporteDTO obtenerResumen(String email, LocalDate desde, LocalDate hasta) {
@@ -36,7 +38,7 @@ public class ReporteServiceImpl implements ReporteService {
         Usuario usuario = usuarioService.obtenerUsuario(email);
         List<SolicitudRecoleccion> solicitudes = obtenerEjecutadasDelPeriodo(usuario, desde, hasta);
         BigDecimal kilos = solicitudes.stream()
-                .map(solicitud -> solicitud.getPublicacion().getCantidad())
+                .map(this::kilos)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         List<SolicitudRecoleccion> calificadas = solicitudes.stream()
                 .filter(solicitud -> solicitud.getCalificacionRecolector() != null)
@@ -55,13 +57,18 @@ public class ReporteServiceImpl implements ReporteService {
         Usuario usuario = usuarioService.obtenerUsuario(email);
         List<SolicitudRecoleccion> solicitudes = obtenerEjecutadasDelPeriodo(usuario, desde, hasta);
         Map<String, List<SolicitudRecoleccion>> porMaterial = solicitudes.stream()
-                .collect(Collectors.groupingBy(solicitud -> solicitud.getPublicacion().getCategoriaMaterial().getNombre()));
-        return porMaterial.entrySet().stream()
-                .map(material -> new ReporteMaterialDTO(material.getKey(), material.getValue().stream()
-                        .map(solicitud -> solicitud.getPublicacion().getCantidad())
-                        .reduce(BigDecimal.ZERO, BigDecimal::add), (long) material.getValue().size()))
-                .sorted(Comparator.comparing(ReporteMaterialDTO::getKilos).reversed())
+                .collect(Collectors.groupingBy(s -> s.getPublicacion().getCategoriaMaterial().getNombre()
+                        + "|" + s.getPublicacion().getUnidadMedida()));
+        return porMaterial.values().stream().map(grupo -> {
+            String unidad = grupo.getFirst().getPublicacion().getUnidadMedida();
+            BigDecimal cantidad = grupo.stream().map(s -> s.getPublicacion().getCantidad()).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal masa = List.of("kg", "g", "t").contains(unidad)
+                    ? grupo.stream().map(this::kilos).reduce(BigDecimal.ZERO, BigDecimal::add) : null;
+            return new ReporteMaterialDTO(grupo.getFirst().getPublicacion().getCategoriaMaterial().getNombre(),
+                    masa, (long) grupo.size(), cantidad, unidad);
+        }).sorted(Comparator.comparing(ReporteMaterialDTO::getKilos, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
+
     }
 
     @Override
@@ -75,20 +82,21 @@ public class ReporteServiceImpl implements ReporteService {
     }
 
     @Override
-    public byte[] exportar(String email, String formato, LocalDate desde, LocalDate hasta) {
+    public byte[] exportar(String email, String formato, String tipo, LocalDate desde, LocalDate hasta) {
         String formatoNormalizado = formato == null ? "" : formato.trim().toLowerCase();
         if (!FORMATOS.contains(formatoNormalizado)) {
             throw new IllegalArgumentException("formato: debe ser pdf o csv");
         }
         validarPeriodo(desde, hasta);
         Usuario usuario = usuarioService.obtenerUsuario(email);
-        if ("pdf".equals(formatoNormalizado)) {
-            // PENDIENTE (libreria): falta acordar una libreria PDF con el equipo.
-            throw new UnsupportedOperationException("END-44 pendiente: la exportación PDF requiere una librería aprobada por el equipo");
-        }
-        List<SolicitudRecoleccion> solicitudes = obtenerSolicitudesHistorial(usuario, null, desde, hasta);
+        List<SolicitudRecoleccion> solicitudes = obtenerSolicitudesHistorial(usuario, tipo, desde, hasta);
         if (solicitudes.isEmpty()) {
             throw new IllegalArgumentException("No hay datos para exportar en el periodo");
+        }
+        if ("pdf".equals(formatoNormalizado)) {
+            return reportePdfService.generar(usuario.getNombreCompleto(),
+                    (desde == null ? "Inicio" : desde.toString()) + " - " + (hasta == null ? "Actualidad" : hasta.toString()),
+                    solicitudes.stream().map(s -> convertirHistorial(usuario, s)).toList());
         }
         return construirCsv(usuario, solicitudes).getBytes(StandardCharsets.UTF_8);
     }
@@ -152,9 +160,11 @@ public class ReporteServiceImpl implements ReporteService {
     }
 
     private HistorialDTO convertirHistorial(Usuario usuario, SolicitudRecoleccion solicitud) {
-        return new HistorialDTO(fechaHistorial(solicitud), nombreMaterial(solicitud),
+        HistorialDTO dto = new HistorialDTO(fechaHistorial(solicitud), nombreMaterial(solicitud),
                 solicitud.getPublicacion().getCantidad(), nombreContraparte(usuario, solicitud),
                 solicitud.getCalificacionRecolector(), solicitud.getEstado(), solicitud.getMontoPago());
+        dto.setSolicitudId(solicitud.getId()); dto.setUnidadMedida(solicitud.getPublicacion().getUnidadMedida());
+        return dto;
     }
 
     private String construirCsv(Usuario usuario, List<SolicitudRecoleccion> solicitudes) {
@@ -175,6 +185,7 @@ public class ReporteServiceImpl implements ReporteService {
             return "";
         }
         String texto = valor instanceof BigDecimal ? ((BigDecimal) valor).toPlainString() : valor.toString();
+        if (valor instanceof String && texto.stripLeading().matches("(?s)^[=+@\\-].*")) texto = "'" + texto;
         if (texto.contains(",") || texto.contains("\"") || texto.contains("\n") || texto.contains("\r")) {
             return "\"" + texto.replace("\"", "\"\"") + "\"";
         }
@@ -201,4 +212,14 @@ public class ReporteServiceImpl implements ReporteService {
             throw new IllegalArgumentException("desde: no puede ser posterior a hasta");
         }
     }
+    private BigDecimal kilos(SolicitudRecoleccion s) {
+        BigDecimal cantidad = s.getPublicacion().getCantidad();
+        return switch (s.getPublicacion().getUnidadMedida()) {
+            case "kg" -> cantidad;
+            case "g" -> cantidad.movePointLeft(3);
+            case "t" -> cantidad.movePointRight(3);
+            default -> BigDecimal.ZERO;
+        };
+    }
+
 }

@@ -12,5 +12,5 @@ public interface ReporteService {
     public ResumenReporteDTO obtenerResumen(String email, LocalDate desde, LocalDate hasta);               // END-41
     public List<ReporteMaterialDTO> obtenerPorMaterial(String email, LocalDate desde, LocalDate hasta);   // END-42
     public List<HistorialDTO> obtenerHistorial(String email, String tipo, LocalDate desde, LocalDate hasta); // END-43
-    public byte[] exportar(String email, String formato, LocalDate desde, LocalDate hasta);               // END-44
+    public byte[] exportar(String email, String formato, String tipo, LocalDate desde, LocalDate hasta);               // END-44
 }

@@ -39,4 +39,10 @@ public class NotificacionController {
     private String emailAutenticado() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
+    @PatchMapping("/read-all")
+    public ResponseEntity<Void> marcarTodas() {
+        notificacionService.marcarTodas(emailAutenticado());
+        return ResponseEntity.noContent().build();
+    }
+
 }

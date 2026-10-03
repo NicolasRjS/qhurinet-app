@@ -55,4 +55,7 @@ public class PuntoReciclaje {
             joinColumns = @JoinColumn(name = "punto_reciclaje_id"),
             inverseJoinColumns = @JoinColumn(name = "categoria_material_id"))
     private Set<CategoriaMaterial> materiales = new HashSet<>();
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean activo = true;
+
 }

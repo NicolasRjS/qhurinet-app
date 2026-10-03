@@ -67,8 +67,8 @@ public class PublicacionMaterialController {
     // END-19
     @PatchMapping("/{id}/cancel")
     @PreAuthorize("hasRole('GENERADOR')")
-    public ResponseEntity<PublicacionDTO> cancelar(@PathVariable Long id) {
-        return ResponseEntity.ok(publicacionMaterialService.cancelar(emailAutenticado(), id));
+    public ResponseEntity<PublicacionDTO> cancelar(@PathVariable Long id, @RequestBody(required = false) CancelarSolicitudDTO datos) {
+        return ResponseEntity.ok(publicacionMaterialService.cancelar(emailAutenticado(), id, datos));
     }
 
     // END-20: multipart/form-data con el campo "archivo"
@@ -82,4 +82,11 @@ public class PublicacionMaterialController {
     private String emailAutenticado() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
+    @DeleteMapping("/{id}/photo")
+    @PreAuthorize("hasRole('GENERADOR')")
+    public ResponseEntity<Void> eliminarFoto(@PathVariable Long id) {
+        publicacionMaterialService.eliminarFoto(emailAutenticado(), id);
+        return ResponseEntity.noContent().build();
+    }
+
 }

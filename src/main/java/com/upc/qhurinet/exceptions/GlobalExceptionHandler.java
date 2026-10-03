@@ -14,7 +14,7 @@ import java.util.NoSuchElementException;
 
 /*
  Traduce las excepciones que lanzan los servicios a codigos HTTP (convenciones de endpoints.md).
- Spring elige el handler mas especifico, por eso RuntimeException queda como respaldo con 400.
+ Spring elige el handler mas especifico; errores inesperados se responden con 500.
 */
 @RestControllerAdvice
 @Slf4j
@@ -68,21 +68,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("CONFLICT", ex.getMessage()));
     }
 
-    // 501: metodo del servicio marcado como PENDIENTE (falta la consulta o un servicio externo)
-    @ExceptionHandler(UnsupportedOperationException.class)
-    public ResponseEntity<ErrorResponse> handleNotImplemented(UnsupportedOperationException ex) {
-        log.warn("Pendiente: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body(new ErrorResponse("NOT_IMPLEMENTED", ex.getMessage()));
-    }
-
     // 503: el servicio externo no responde
     @ExceptionHandler(RestClientException.class)
     public ResponseEntity<ErrorResponse> handleServiceUnavailable(RestClientException ex) {
-        log.warn("Servicio externo no disponible: {}", ex.getMessage());
+        log.warn("Servicio externo no disponible ({})", ex.getClass().getSimpleName());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ErrorResponse("SERVICE_UNAVAILABLE",
-                        "El servicio de rutas no está disponible, inténtalo nuevamente"));
+                        "El servicio externo no está disponible, inténtalo nuevamente"));
     }
 
     // RuntimeException genérica (las que lanzas desde el service)
@@ -90,8 +82,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
         log.error("Runtime error: {}", ex.getMessage(), ex);
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("RUNTIME_ERROR", ex.getMessage()));
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse("INTERNAL_ERROR", "Ocurrió un error inesperado"));
     }
 
     // Cualquier otra excepción no controlada
@@ -103,4 +95,21 @@ public class GlobalExceptionHandler {
     }
 
     public record ErrorResponse(String code, String message) {}
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class})
+    public ResponseEntity<ErrorResponse> handleRequest(Exception ex) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("VALIDATION_ERROR", "Solicitud incompleta o con formato inválido"));
+    }
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleSize(Exception ex) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("VALIDATION_ERROR", "archivo: máximo 5 MB"));
+    }
+    @ExceptionHandler({org.springframework.dao.DataIntegrityViolationException.class,
+            org.springframework.dao.ConcurrencyFailureException.class})
+    public ResponseEntity<ErrorResponse> handleDatabaseConflict(Exception ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("CONFLICT", "El recurso cambió o ya existe; consulta su estado"));
+    }
+
 }

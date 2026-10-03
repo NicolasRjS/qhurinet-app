@@ -31,7 +31,6 @@ import java.util.NoSuchElementException;
    AccessDeniedException         -> 403  el usuario no es dueño o parte del recurso
    NoSuchElementException        -> 404  recurso no encontrado
    IllegalStateException         -> 409  conflicto de estado o de unicidad
-   UnsupportedOperationException -> 501  metodo PENDIENTE (falta la consulta o un servicio externo)
 */
 @Service
 @Slf4j
@@ -69,6 +68,10 @@ public class UsuarioServiceImpl implements UsuarioService {
     private JwtUtil jwtUtil;
     @Autowired
     private ModelMapper modelMapper;
+    @Autowired
+    private com.upc.qhurinet.repositories.CategoriaMaterialRepositorio categoriaMaterialRepositorio;
+    @Autowired
+    private com.upc.qhurinet.services.CorreoService correoService;
 
     @Transactional
     @Override
@@ -107,9 +110,9 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuario.setRol(rol);
         usuario = usuarioRepositorio.save(usuario);
 
-        // No hay servicio de correo: el token de confirmacion se deja en el log para probar END-04
+        // SMTP en entrega; modo log configurable para desarrollo local.
         String tokenVerificacion = jwtUtil.generarTokenVerificacion(email);
-        log.info("Token de verificación de correo para {}: {}", email, tokenVerificacion);
+        correoService.enviarVerificacion(email, tokenVerificacion);
 
         return modelMapper.map(usuario, UsuarioDTO.class);
     }
@@ -132,7 +135,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     public PerfilUsuarioDTO obtenerPerfil(String email) {
-        return modelMapper.map(buscarUsuario(email), PerfilUsuarioDTO.class);
+        return perfil(buscarUsuario(email));
     }
 
     @Transactional
@@ -152,11 +155,20 @@ public class UsuarioServiceImpl implements UsuarioService {
         }
 
         // Solo se modifican los campos editables; el email identifica la cuenta y no cambia
-        Usuario usuario = buscarUsuario(email);
+        Usuario usuario = usuarioRepositorio.buscarParaActualizar(buscarUsuario(email).getId()).orElseThrow();
+        if (actualizarPerfilDTO.getMaterialesIds() != null) {
+            java.util.Set<com.upc.qhurinet.entities.CategoriaMaterial> materiales = new java.util.HashSet<>();
+            for (Integer id : actualizarPerfilDTO.getMaterialesIds()) {
+                if (id == null) throw new IllegalArgumentException("materialesIds: no admite null");
+                materiales.add(categoriaMaterialRepositorio.findById(id)
+                        .orElseThrow(() -> new NoSuchElementException("Categoría de material no encontrada")));
+            }
+            usuario.setMateriales(materiales);
+        }
         usuario.setNombreCompleto(actualizarPerfilDTO.getNombreCompleto().trim());
         usuario.setTelefono(actualizarPerfilDTO.getTelefono());
         usuario.setDescripcion(descripcion == null || descripcion.isBlank() ? null : descripcion);
-        return modelMapper.map(usuarioRepositorio.save(usuario), PerfilUsuarioDTO.class);
+        return perfil(usuarioRepositorio.save(usuario));
     }
 
     @Transactional
@@ -184,24 +196,82 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional
     @Override
     public MetodoPagoDTO actualizarMetodoPago(String email, MetodoPagoDTO metodoPagoDTO) {
-        String metodoPago = metodoPagoDTO.getMetodoPagoPreferido();
-        if (metodoPago == null || !METODOS_PAGO.contains(metodoPago)) {
-            throw new IllegalArgumentException("metodoPagoPreferido: debe ser uno de " + String.join(", ", METODOS_PAGO));
+        Usuario usuario = usuarioRepositorio.buscarParaActualizar(buscarUsuario(email).getId()).orElseThrow();
+        List<MetodoPagoUsuarioDTO> datos = metodoPagoDTO.getMetodos();
+        if (datos == null) {
+            String tipo = metodoPagoDTO.getMetodoPagoPreferido();
+            if (tipo == null || !METODOS_PAGO.contains(tipo)) throw new IllegalArgumentException("metodoPagoPreferido: no admitido");
+            var existente = usuario.getMetodosPago().stream().filter(m -> m.getTipo().equals(tipo)).findFirst();
+            if (existente.isPresent()) {
+                usuario.getMetodosPago().forEach(m -> m.setPredeterminado(m == existente.get()));
+            } else {
+                if (!"efectivo".equals(tipo)) throw new IllegalArgumentException("metodos: envíe los datos requeridos del método nuevo");
+                usuario.getMetodosPago().forEach(m -> m.setPredeterminado(false));
+                usuario.getMetodosPago().add(new com.upc.qhurinet.entities.MetodoPagoUsuario(null, usuario, tipo, null, true));
+            }
+        } else {
+            if (datos.isEmpty() || datos.size() > 10) throw new IllegalArgumentException("metodos: entre 1 y 10 métodos");
+            if (datos.stream().anyMatch(java.util.Objects::isNull)) throw new IllegalArgumentException("metodos: no admite null");
+            if (datos.stream().filter(m -> Boolean.TRUE.equals(m.getPredeterminado())).count() != 1) {
+                throw new IllegalArgumentException("metodos: exactamente uno debe ser predeterminado");
+            }
+            java.util.Set<Long> ids = new java.util.HashSet<>();
+            java.util.List<com.upc.qhurinet.entities.MetodoPagoUsuario> resultado = new java.util.ArrayList<>();
+            for (MetodoPagoUsuarioDTO dato : datos) {
+                validarMetodo(dato);
+                com.upc.qhurinet.entities.MetodoPagoUsuario metodo;
+                if (dato.getId() == null) {
+                    metodo = new com.upc.qhurinet.entities.MetodoPagoUsuario(); metodo.setUsuario(usuario);
+                } else {
+                    if (!ids.add(dato.getId())) throw new IllegalArgumentException("metodos: identificador repetido");
+                    metodo = usuario.getMetodosPago().stream().filter(m -> dato.getId().equals(m.getId())).findFirst()
+                            .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Método ajeno al usuario"));
+                }
+                metodo.setTipo(dato.getTipo()); metodo.setDato(dato.getDato());
+                metodo.setPredeterminado(Boolean.TRUE.equals(dato.getPredeterminado()));
+                resultado.add(metodo);
+            }
+            usuario.getMetodosPago().clear(); usuario.getMetodosPago().addAll(resultado);
         }
-        Usuario usuario = buscarUsuario(email);
-        usuario.setMetodoPagoPreferido(metodoPago);
-        usuarioRepositorio.save(usuario);
-        return new MetodoPagoDTO(usuario.getMetodoPagoPreferido());
+        usuario.setMetodoPagoPreferido(usuario.getMetodosPago().stream().filter(m -> m.isPredeterminado()).findFirst().orElseThrow().getTipo());
+        usuarioRepositorio.saveAndFlush(usuario);
+        return new MetodoPagoDTO(usuario.getMetodoPagoPreferido(), metodos(usuario));
+    }
+
+    private void validarMetodo(MetodoPagoUsuarioDTO metodo) {
+        if (metodo.getTipo() == null || !METODOS_PAGO.contains(metodo.getTipo())) throw new IllegalArgumentException("tipo: método no admitido");
+        String dato = metodo.getDato();
+        boolean valido = switch (metodo.getTipo()) {
+            case "efectivo" -> dato == null || dato.isBlank();
+            case "yape", "plin" -> dato != null && dato.matches("\\d{9}");
+            case "tarjeta" -> dato != null && dato.matches("\\d{4}");
+            case "transferencia" -> dato != null && dato.matches("\\d{20}");
+            default -> false;
+        };
+        if (!valido) throw new IllegalArgumentException("dato: billetera requiere 9 dígitos; tarjeta solo últimos 4; transferencia CCI de 20; efectivo sin dato");
+    }
+    private List<MetodoPagoUsuarioDTO> metodos(Usuario u) {
+        return u.getMetodosPago().stream().map(m -> new MetodoPagoUsuarioDTO(m.getId(), m.getTipo(), m.getDato(), m.isPredeterminado())).toList();
+    }
+    private PerfilUsuarioDTO perfil(Usuario u) {
+        PerfilUsuarioDTO dto = modelMapper.map(u, PerfilUsuarioDTO.class);
+        dto.setMetodosPago(metodos(u));
+        dto.setMateriales(u.getMateriales().stream().map(c -> modelMapper.map(c, CategoriaMaterialDTO.class)).toList());
+        dto.setVerificado(!documentoVerificacionRepositorio.findByUsuario_IdAndEstado(u.getId(), DocumentoVerificacionServiceImpl.ESTADO_APROBADO).isEmpty());
+        if (dto.getCalificacionPromedio() != null && dto.getCalificacionPromedio().signum() == 0) dto.setCalificacionPromedio(null);
+        return dto;
     }
 
     @Override
     public ReputacionUsuarioDTO obtenerReputacion(Long id) {
         Usuario usuario = usuarioRepositorio.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado"));
-        List<SolicitudRecoleccion> entregas = solicitudRecoleccionRepositorio.findByRecolector_IdAndEstado(
-                usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA);
+        boolean generador = RolServiceImpl.GENERADOR.equals(usuario.getRol().getNombre());
+        List<SolicitudRecoleccion> entregas = generador
+                ? solicitudRecoleccionRepositorio.findByPublicacion_Generador_IdAndEstado(usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA)
+                : solicitudRecoleccionRepositorio.findByRecolector_IdAndEstado(usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA);
         List<SolicitudRecoleccion> calificadas = entregas.stream()
-                .filter(solicitud -> solicitud.getCalificacionRecolector() != null)
+                .filter(solicitud -> !generador && solicitud.getCalificacionRecolector() != null)
                 .toList();
         BigDecimal promedio = calificadas.isEmpty() ? null : calificadas.stream()
                 .map(solicitud -> BigDecimal.valueOf(solicitud.getCalificacionRecolector()))
@@ -209,8 +279,11 @@ public class UsuarioServiceImpl implements UsuarioService {
                 .divide(BigDecimal.valueOf(calificadas.size()), 2, RoundingMode.HALF_UP);
         boolean verificado = !documentoVerificacionRepositorio.findByUsuario_IdAndEstado(
                 usuario.getId(), DocumentoVerificacionServiceImpl.ESTADO_APROBADO).isEmpty();
-        return new ReputacionUsuarioDTO(usuario.getId(), usuario.getNombreCompleto(),
+        ReputacionUsuarioDTO dto = new ReputacionUsuarioDTO(usuario.getId(), usuario.getNombreCompleto(),
                 usuario.getFotoPerfilUrl(), promedio, (long) entregas.size(), verificado);
+        dto.setDescripcion(usuario.getDescripcion()); dto.setRolNombre(usuario.getRol().getNombre());
+        dto.setMateriales(usuario.getMateriales().stream().map(c -> modelMapper.map(c, CategoriaMaterialDTO.class)).toList());
+        return dto;
     }
 
     @Override

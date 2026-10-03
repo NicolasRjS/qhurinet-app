@@ -50,10 +50,13 @@ public class ReporteController {
     @GetMapping("/reports/export")
     public ResponseEntity<byte[]> exportar(
             @RequestParam(value = "formato", required = false) String formato,
+            @RequestParam(value = "tipo", required = false) String tipo,
             @RequestParam(value = "desde", required = false) LocalDate desde,
             @RequestParam(value = "hasta", required = false) LocalDate hasta) {
-        byte[] archivo = reporteService.exportar(emailAutenticado(), formato, desde, hasta);
+        byte[] archivo = reporteService.exportar(emailAutenticado(), formato, tipo, desde, hasta);
+        formato = formato.trim().toLowerCase(java.util.Locale.ROOT);
         return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType("pdf".equals(formato) ? "application/pdf" : "text/csv;charset=UTF-8"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=historial." + formato)
                 .body(archivo);
     }

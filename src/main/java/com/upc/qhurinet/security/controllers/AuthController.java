@@ -21,6 +21,18 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.upc.qhurinet.security.services.OAuthService oauthService;
+
+    @PostMapping("/oauth/{provider}")
+    public ResponseEntity<AuthResponseDTO> oauth(@PathVariable String provider,
+            @RequestBody com.upc.qhurinet.dtos.OAuthDTO datos) {
+        var usuario = oauthService.autenticar(provider, datos);
+        String token = jwtUtil.generateToken(userDetailsService.loadUserByUsername(usuario.getEmail()));
+        return ResponseEntity.ok().header(HttpHeaders.AUTHORIZATION, token)
+                .body(new AuthResponseDTO(token, usuarioService.buscarPorEmail(usuario.getEmail())));
+    }
+
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;

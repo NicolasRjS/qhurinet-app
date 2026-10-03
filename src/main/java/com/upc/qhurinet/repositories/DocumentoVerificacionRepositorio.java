@@ -8,4 +8,6 @@ import java.util.List;
 public interface DocumentoVerificacionRepositorio extends JpaRepository<DocumentoVerificacion, Long> {
     List<DocumentoVerificacion> findByUsuario_IdOrderByFechaSubidaDesc(Long usuarioId);
     List<DocumentoVerificacion> findByUsuario_IdAndEstado(Long usuarioId, String estado);
+    java.util.Optional<DocumentoVerificacion> findByUrlArchivo(String url);
+
 }

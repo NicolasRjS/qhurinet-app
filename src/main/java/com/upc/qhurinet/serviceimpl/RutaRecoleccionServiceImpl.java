@@ -54,6 +54,13 @@ public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
         if (optimizarRutaDTO.getLatitudOrigen() == null || optimizarRutaDTO.getLongitudOrigen() == null) {
             throw new IllegalArgumentException("latitudOrigen y longitudOrigen: son obligatorias");
         }
+        if (puntosIds.stream().anyMatch(java.util.Objects::isNull) || new HashSet<>(puntosIds).size() != puntosIds.size()) {
+            throw new IllegalArgumentException("puntosIds: no admite nulos ni repetidos");
+        }
+        if (optimizarRutaDTO.getLatitudOrigen().abs().compareTo(BigDecimal.valueOf(90)) > 0
+                || optimizarRutaDTO.getLongitudOrigen().abs().compareTo(BigDecimal.valueOf(180)) > 0) {
+            throw new IllegalArgumentException("coordenadas: fuera de rango");
+        }
         // Las coordenadas se toman de la base, no del cliente (404 si algun punto no existe)
         List<PuntoReciclaje> puntos = puntosIds.stream().map(puntoReciclajeService::obtenerPunto).toList();
 
@@ -107,6 +114,12 @@ public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
             paradas.add(new ParadaRutaDTO(punto.getId(), ((Number) ordenRespuesta).intValue(), punto.getNombre(),
                     punto.getDireccion(), punto.getLatitud(), punto.getLongitud()));
         }
+        if (paradas.stream().map(ParadaRutaDTO::getOrden).distinct().count() != puntos.size()
+                || paradas.stream().anyMatch(p -> p.getOrden() < 1 || p.getOrden() > puntos.size())
+                || !Double.isFinite(distancia.doubleValue()) || distancia.doubleValue() < 0
+                || !Double.isFinite(duracion.doubleValue()) || duracion.doubleValue() < 0) {
+            throw new RestClientException("Respuesta de rutas inválida");
+        }
         paradas.sort(Comparator.comparing(ParadaRutaDTO::getOrden));
 
         BigDecimal distanciaKm = BigDecimal.valueOf(distancia.doubleValue())
@@ -127,6 +140,12 @@ public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
     @Override
     public RutaDTO crear(String email, CrearRutaDTO crearRutaDTO) {
         List<String> errores = new ArrayList<>();
+        BigDecimal distancia = crearRutaDTO.getDistanciaTotalKm();
+        Integer tiempo = crearRutaDTO.getTiempoEstimadoMin();
+        if (distancia == null || distancia.signum() < 0 || distancia.scale() > 2 || distancia.precision() - distancia.scale() > 4) {
+            errores.add("distanciaTotalKm: obligatoria, de 0 a 9999.99");
+        }
+        if (tiempo == null || tiempo < 0) errores.add("tiempoEstimadoMin: obligatorio y no negativo");
         if (crearRutaDTO.getNombre() == null || crearRutaDTO.getNombre().isBlank()) {
             errores.add("nombre: es obligatorio");
         } else if (crearRutaDTO.getNombre().trim().length() > NOMBRE_MAX) {
@@ -139,7 +158,7 @@ public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
             Set<Integer> ordenes = new HashSet<>();
             Set<Long> puntos = new HashSet<>();
             for (ParadaRutaDTO parada : paradas) {
-                if (parada.getPuntoReciclajeId() == null || parada.getOrden() == null) {
+                if (parada == null || parada.getPuntoReciclajeId() == null || parada.getOrden() == null || parada.getOrden() < 1) {
                     errores.add("paradas: cada parada requiere puntoReciclajeId y orden");
                     break;
                 }

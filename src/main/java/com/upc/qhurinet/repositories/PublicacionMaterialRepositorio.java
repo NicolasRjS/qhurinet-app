@@ -15,4 +15,10 @@ public interface PublicacionMaterialRepositorio extends JpaRepository<Publicacio
     @Query("select s from SolicitudRecoleccion s where s.publicacion.generador.id = :generadorId " +
             "and s.estado <> 'cancelada' order by s.fechaSolicitud desc")
     List<SolicitudRecoleccion> buscarSolicitudesVigentesPorGenerador(@Param("generadorId") Long generadorId);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select e from PublicacionMaterial e where e.id = :id")
+    java.util.Optional<PublicacionMaterial> buscarParaActualizar(@org.springframework.data.repository.query.Param("id") Long id);
+
+    java.util.List<PublicacionMaterial> findByFotoUrl(String url);
+
 }

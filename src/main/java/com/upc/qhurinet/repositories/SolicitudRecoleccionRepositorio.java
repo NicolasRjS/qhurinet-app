@@ -18,4 +18,8 @@ public interface SolicitudRecoleccionRepositorio extends JpaRepository<Solicitud
             + "and s.estado = :estado and s.calificacionRecolector is not null")
     List<SolicitudRecoleccion> buscarCalificadasPorRecolector(@Param("recolectorId") Long recolectorId,
                                                             @Param("estado") String estado);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select e from SolicitudRecoleccion e where e.id = :id")
+    java.util.Optional<SolicitudRecoleccion> buscarParaActualizar(@org.springframework.data.repository.query.Param("id") Long id);
+
 }

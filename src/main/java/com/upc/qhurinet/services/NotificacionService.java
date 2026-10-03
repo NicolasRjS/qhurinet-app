@@ -13,4 +13,6 @@ public interface NotificacionService {
 
     // Usado por los demas servicios en cada cambio de estado de una recoleccion (US 15-EP2)
     public void notificar(Usuario usuario, String mensaje);
+    void marcarTodas(String email);
+
 }

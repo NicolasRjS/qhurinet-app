@@ -24,4 +24,8 @@ import java.util.List;
 */
 public interface AlmacenamientoService {
     public String guardar(MultipartFile archivo, String carpeta, List<String> extensionesPermitidas);
+    String validar(MultipartFile archivo, List<String> extensiones);
+    org.springframework.core.io.Resource obtener(String email, String id);
+    String tipo(String extension);
+
 }

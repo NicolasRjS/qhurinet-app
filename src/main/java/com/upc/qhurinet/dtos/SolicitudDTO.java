@@ -28,4 +28,8 @@ public class SolicitudDTO {
     private Integer calificacionRecolector;
     private BigDecimal montoPago;
     private String metodoPago;
+    private String franjaHoraria;
+
+    private String comentarioCalificacion;
+
 }

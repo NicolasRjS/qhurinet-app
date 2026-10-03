@@ -35,7 +35,7 @@ public class Usuario {
     @Column(length = 150, nullable = false, unique = true)
     private String email;
 
-    @Column(length = 255, nullable = false)
+    @Column(length = 255)
     private String passwordHash;
 
     @Column(length = 20)
@@ -67,4 +67,12 @@ public class Usuario {
     // Borrado en cascada del modelo (notificaciones -> usuarios), a nivel de aplicacion
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Notificacion> notificaciones = new ArrayList<>();
+    @ManyToMany
+    @JoinTable(name = "usuarios_materiales", joinColumns = @JoinColumn(name = "usuario_id"),
+            inverseJoinColumns = @JoinColumn(name = "categoria_material_id"))
+    private java.util.Set<CategoriaMaterial> materiales = new java.util.HashSet<>();
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MetodoPagoUsuario> metodosPago = new ArrayList<>();
+
 }

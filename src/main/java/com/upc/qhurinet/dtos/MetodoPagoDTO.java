@@ -12,4 +12,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class MetodoPagoDTO {
     private String metodoPagoPreferido;
+    private java.util.List<MetodoPagoUsuarioDTO> metodos;
+    public MetodoPagoDTO(String preferido) { this.metodoPagoPreferido = preferido; }
+
 }

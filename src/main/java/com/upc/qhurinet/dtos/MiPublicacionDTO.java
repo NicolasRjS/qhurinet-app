@@ -21,4 +21,18 @@ public class MiPublicacionDTO {
     private String estado;
     private String reciclador;
     private LocalDateTime fechaCoordinada;
+    public MiPublicacionDTO(Long id, BigDecimal cantidad, String material, LocalDateTime fechaPublicacion, String estado, String reciclador, LocalDateTime fechaCoordinada) {
+        this.id = id;
+        this.cantidad = cantidad;
+        this.material = material;
+        this.fechaPublicacion = fechaPublicacion;
+        this.estado = estado;
+        this.reciclador = reciclador;
+        this.fechaCoordinada = fechaCoordinada;
+    }
+
+    private Long solicitudId;
+    private String franjaHoraria;
+    private String unidadMedida;
+
 }

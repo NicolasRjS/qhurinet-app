@@ -14,4 +14,6 @@ public class ActualizarPerfilDTO {
     private String nombreCompleto;
     private String telefono;
     private String descripcion;
+    private java.util.List<Integer> materialesIds;
+
 }

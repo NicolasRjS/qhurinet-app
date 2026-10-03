@@ -19,4 +19,17 @@ public class ReputacionUsuarioDTO {
     private BigDecimal calificacionPromedio;
     private Long totalEntregas;
     private Boolean verificado;
+    private String descripcion;
+    private String rolNombre;
+    private java.util.List<CategoriaMaterialDTO> materiales;
+
+    public ReputacionUsuarioDTO(Long id, String nombreCompleto, String fotoPerfilUrl, BigDecimal calificacionPromedio, Long totalEntregas, Boolean verificado) {
+        this.id = id;
+        this.nombreCompleto = nombreCompleto;
+        this.fotoPerfilUrl = fotoPerfilUrl;
+        this.calificacionPromedio = calificacionPromedio;
+        this.totalEntregas = totalEntregas;
+        this.verificado = verificado;
+    }
+
 }

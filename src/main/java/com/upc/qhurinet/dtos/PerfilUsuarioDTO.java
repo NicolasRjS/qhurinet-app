@@ -25,4 +25,8 @@ public class PerfilUsuarioDTO {
     private String estado;
     private Integer rolId;
     private String rolNombre;
+    private java.util.List<CategoriaMaterialDTO> materiales;
+    private java.util.List<MetodoPagoUsuarioDTO> metodosPago;
+    private Boolean verificado;
+
 }

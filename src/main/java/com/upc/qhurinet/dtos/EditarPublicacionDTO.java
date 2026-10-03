@@ -18,4 +18,14 @@ public class EditarPublicacionDTO {
     private String descripcion;
     private String direccion;
     private LocalDate fechaDisponibilidad;
+    private String franjaHoraria;
+    private BigDecimal montoPago;
+    private String metodoPago;
+
+    private Integer categoriaMaterialId;
+    private String unidadMedida;
+    private String distrito;
+    private BigDecimal latitud;
+    private BigDecimal longitud;
+
 }

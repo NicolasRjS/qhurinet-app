@@ -12,4 +12,6 @@ import lombok.Setter;
 @AllArgsConstructor
 public class CalificarRecolectorDTO {
     private Integer calificacion;
+    private String comentario;
+
 }

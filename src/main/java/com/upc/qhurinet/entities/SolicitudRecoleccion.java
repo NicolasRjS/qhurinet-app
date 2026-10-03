@@ -73,4 +73,9 @@ public class SolicitudRecoleccion {
     // Borrado en cascada del modelo (mensajes -> solicitudes_recoleccion), a nivel de aplicacion
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Mensaje> mensajes = new ArrayList<>();
+    @Column(length = 20)
+    private String franjaHoraria;
+    @Column(length = 200)
+    private String comentarioCalificacion;
+
 }

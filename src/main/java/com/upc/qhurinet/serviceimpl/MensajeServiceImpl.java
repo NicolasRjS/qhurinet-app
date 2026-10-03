@@ -26,8 +26,12 @@ public class MensajeServiceImpl implements MensajeService {
 
     // Solo las dos partes de la solicitud ven el chat. Usa la coleccion SolicitudRecoleccion.mensajes
     @Override
+    @Transactional
     public List<MensajeDTO> listar(String email, Long solicitudId) {
         SolicitudRecoleccion solicitud = solicitudRecoleccionService.obtenerSolicitudComoParte(email, solicitudId);
+        solicitud.getMensajes().stream()
+                .filter(m -> !m.getRemitente().getEmail().equals(email) && m.getFechaLectura() == null)
+                .forEach(m -> { m.setFechaLectura(java.time.LocalDateTime.now()); mensajeRepositorio.save(m); });
         return solicitud.getMensajes()
                 .stream()
                 .sorted(Comparator.comparing(Mensaje::getFechaEnvio))
