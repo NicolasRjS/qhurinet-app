@@ -1,6 +1,10 @@
 package com.upc.qhurinet.controllers;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.CrearRutaDTO;
+import com.upc.qhurinet.dtos.OptimizarRutaDTO;
+import com.upc.qhurinet.dtos.RutaDTO;
+import com.upc.qhurinet.dtos.RutaOptimizadaDTO;
+import com.upc.qhurinet.dtos.RutaResumenDTO;
 import com.upc.qhurinet.services.RutaRecoleccionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

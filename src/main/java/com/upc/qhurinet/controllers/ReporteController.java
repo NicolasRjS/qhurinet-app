@@ -6,12 +6,14 @@ import com.upc.qhurinet.dtos.ResumenReporteDTO;
 import com.upc.qhurinet.services.ReporteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 // Reportes e historial (END-41 a END-44). Fechas en formato yyyy-MM-dd
 @RestController
@@ -54,9 +56,10 @@ public class ReporteController {
             @RequestParam(value = "desde", required = false) LocalDate desde,
             @RequestParam(value = "hasta", required = false) LocalDate hasta) {
         byte[] archivo = reporteService.exportar(emailAutenticado(), formato, tipo, desde, hasta);
-        formato = formato.trim().toLowerCase(java.util.Locale.ROOT);
+        formato = formato.trim().toLowerCase(Locale.ROOT);
+        String tipoContenido = "pdf".equals(formato) ? "application/pdf" : "text/csv;charset=UTF-8";
         return ResponseEntity.ok()
-                .contentType(org.springframework.http.MediaType.parseMediaType("pdf".equals(formato) ? "application/pdf" : "text/csv;charset=UTF-8"))
+                .contentType(MediaType.parseMediaType(tipoContenido))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=historial." + formato)
                 .body(archivo);
     }

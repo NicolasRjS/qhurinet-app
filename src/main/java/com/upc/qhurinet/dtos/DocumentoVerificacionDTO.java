@@ -13,9 +13,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DocumentoVerificacionDTO {
+
     private Long id;
+
     private String tipo;
+
     private String urlArchivo;
+
     private String estado;
+
     private LocalDateTime fechaSubida;
 }

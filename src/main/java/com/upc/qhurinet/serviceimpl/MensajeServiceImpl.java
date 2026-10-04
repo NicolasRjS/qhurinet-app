@@ -12,6 +12,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 
@@ -31,7 +32,10 @@ public class MensajeServiceImpl implements MensajeService {
         SolicitudRecoleccion solicitud = solicitudRecoleccionService.obtenerSolicitudComoParte(email, solicitudId);
         solicitud.getMensajes().stream()
                 .filter(m -> !m.getRemitente().getEmail().equals(email) && m.getFechaLectura() == null)
-                .forEach(m -> { m.setFechaLectura(java.time.LocalDateTime.now()); mensajeRepositorio.save(m); });
+                .forEach(m -> {
+                    m.setFechaLectura(LocalDateTime.now());
+                    mensajeRepositorio.save(m);
+                });
         return solicitud.getMensajes()
                 .stream()
                 .sorted(Comparator.comparing(Mensaje::getFechaEnvio))

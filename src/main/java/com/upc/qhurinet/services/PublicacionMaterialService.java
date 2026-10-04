@@ -1,6 +1,11 @@
 package com.upc.qhurinet.services;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.CancelarSolicitudDTO;
+import com.upc.qhurinet.dtos.CrearPublicacionDTO;
+import com.upc.qhurinet.dtos.EditarPublicacionDTO;
+import com.upc.qhurinet.dtos.FotoPublicacionDTO;
+import com.upc.qhurinet.dtos.MiPublicacionDTO;
+import com.upc.qhurinet.dtos.PublicacionDTO;
 import com.upc.qhurinet.entities.PublicacionMaterial;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,11 +20,10 @@ public interface PublicacionMaterialService {
                                                BigDecimal minKg, LocalDate fecha, String estado);         // END-16
     public List<MiPublicacionDTO> listarMisPublicaciones(String email, String estado);                    // END-17
     public PublicacionDTO editar(String email, Long id, EditarPublicacionDTO editarPublicacionDTO);       // END-18
-    public PublicacionDTO cancelar(String email, Long id, CancelarSolicitudDTO datos);                                                // END-19
+    public PublicacionDTO cancelar(String email, Long id, CancelarSolicitudDTO datos);                    // END-19
     public FotoPublicacionDTO subirFoto(String email, Long id, MultipartFile archivo);                    // END-20
+    public void eliminarFoto(String email, Long id);                                                      // DELETE /publications/{id}/photo
 
     // Usado por SolicitudRecoleccionService (404 si no existe)
     public PublicacionMaterial obtenerPublicacion(Long id);
-    void eliminarFoto(String email, Long id);
-
 }

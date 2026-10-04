@@ -1,7 +1,21 @@
 package com.upc.qhurinet.controllers;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.CalificacionDTO;
+import com.upc.qhurinet.dtos.CalificarRecolectorDTO;
+import com.upc.qhurinet.dtos.CancelarSolicitudDTO;
+import com.upc.qhurinet.dtos.CodigoQrDTO;
+import com.upc.qhurinet.dtos.CrearSolicitudDTO;
+import com.upc.qhurinet.dtos.DetalleSolicitudDTO;
+import com.upc.qhurinet.dtos.EntregaQrDTO;
+import com.upc.qhurinet.dtos.MiSolicitudDTO;
+import com.upc.qhurinet.dtos.PrioridadSolicitudDTO;
+import com.upc.qhurinet.dtos.ReprogramarSolicitudDTO;
+import com.upc.qhurinet.dtos.SeguimientoDTO;
+import com.upc.qhurinet.dtos.SolicitudDTO;
+import com.upc.qhurinet.dtos.UbicacionDTO;
+import com.upc.qhurinet.dtos.ValidarQrDTO;
 import com.upc.qhurinet.services.SolicitudRecoleccionService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,9 +31,13 @@ import java.util.List;
  Con @PreAuthorize: ademas se exige el rol (reclamar y confirmar = recolector; QR, calificar y seguimiento = generador).
 */
 @RestController
-@CrossOrigin(origins = "${ip.frontend}", allowCredentials = "true", exposedHeaders = "Authorization")
+@CrossOrigin(
+        origins = "${ip.frontend}",
+        allowCredentials = "true",
+        exposedHeaders = "Authorization")
 @RequestMapping("/api/v1/collection-requests")
 public class SolicitudRecoleccionController {
+
     @Autowired
     private SolicitudRecoleccionService solicitudRecoleccionService;
 
@@ -27,7 +45,8 @@ public class SolicitudRecoleccionController {
     @PostMapping
     @PreAuthorize("hasRole('RECOLECTOR')")
     public ResponseEntity<SolicitudDTO> crear(@RequestBody CrearSolicitudDTO crearSolicitudDTO) {
-        SolicitudDTO solicitud = solicitudRecoleccionService.crear(emailAutenticado(), crearSolicitudDTO);
+        SolicitudDTO solicitud =
+                solicitudRecoleccionService.crear(emailAutenticado(), crearSolicitudDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(solicitud);
     }
 
@@ -35,81 +54,115 @@ public class SolicitudRecoleccionController {
     @GetMapping
     public ResponseEntity<List<MiSolicitudDTO>> listarMisSolicitudes(
             @RequestParam(value = "estado", required = false) String estado) {
-        return ResponseEntity.ok(solicitudRecoleccionService.listarMisSolicitudes(emailAutenticado(), estado));
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.listarMisSolicitudes(emailAutenticado(), estado));
     }
 
     // END-24
     @PatchMapping("/{id}/reschedule")
-    public ResponseEntity<SolicitudDTO> reprogramar(@PathVariable Long id, @RequestBody ReprogramarSolicitudDTO reprogramarSolicitudDTO) {
-        return ResponseEntity.ok(solicitudRecoleccionService.reprogramar(emailAutenticado(), id, reprogramarSolicitudDTO));
+    public ResponseEntity<SolicitudDTO> reprogramar(
+            @PathVariable Long id,
+            @RequestBody ReprogramarSolicitudDTO reprogramarSolicitudDTO) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.reprogramar(
+                        emailAutenticado(), id, reprogramarSolicitudDTO));
     }
 
     // END-25
     @PatchMapping("/{id}/cancel")
-    public ResponseEntity<SolicitudDTO> cancelar(@PathVariable Long id, @RequestBody CancelarSolicitudDTO cancelarSolicitudDTO) {
-        return ResponseEntity.ok(solicitudRecoleccionService.cancelar(emailAutenticado(), id, cancelarSolicitudDTO));
+    public ResponseEntity<SolicitudDTO> cancelar(
+            @PathVariable Long id,
+            @RequestBody CancelarSolicitudDTO cancelarSolicitudDTO) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.cancelar(emailAutenticado(), id, cancelarSolicitudDTO));
     }
 
     // END-26
     @PatchMapping("/{id}/priority")
-    public ResponseEntity<SolicitudDTO> cambiarPrioridad(@PathVariable Long id, @RequestBody PrioridadSolicitudDTO prioridadSolicitudDTO) {
-        return ResponseEntity.ok(solicitudRecoleccionService.cambiarPrioridad(emailAutenticado(), id, prioridadSolicitudDTO));
+    public ResponseEntity<SolicitudDTO> cambiarPrioridad(
+            @PathVariable Long id,
+            @RequestBody PrioridadSolicitudDTO prioridadSolicitudDTO) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.cambiarPrioridad(
+                        emailAutenticado(), id, prioridadSolicitudDTO));
     }
 
     // END-27: el generador obtiene el codigo que mostrara al recolector
     @GetMapping("/{id}/qr")
     @PreAuthorize("hasRole('GENERADOR')")
     public ResponseEntity<CodigoQrDTO> obtenerCodigoQr(@PathVariable Long id) {
-        return ResponseEntity.ok(solicitudRecoleccionService.obtenerCodigoQr(emailAutenticado(), id));
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.obtenerCodigoQr(emailAutenticado(), id));
     }
 
     // END-28
     @PostMapping("/{id}/validate-qr")
     @PreAuthorize("hasRole('RECOLECTOR')")
-    public ResponseEntity<EntregaQrDTO> validarQr(@PathVariable Long id, @RequestBody ValidarQrDTO validarQrDTO) {
-        return ResponseEntity.ok(solicitudRecoleccionService.validarQr(emailAutenticado(), id, validarQrDTO));
+    public ResponseEntity<EntregaQrDTO> validarQr(
+            @PathVariable Long id,
+            @RequestBody ValidarQrDTO validarQrDTO) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.validarQr(emailAutenticado(), id, validarQrDTO));
     }
 
     // END-29
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasRole('RECOLECTOR')")
-    public ResponseEntity<SolicitudDTO> confirmarEntrega(@PathVariable Long id, @RequestBody ValidarQrDTO datos) {
-        return ResponseEntity.ok(solicitudRecoleccionService.confirmarEntrega(emailAutenticado(), id, datos));
+    public ResponseEntity<SolicitudDTO> confirmarEntrega(
+            @PathVariable Long id,
+            @RequestBody ValidarQrDTO datos) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.confirmarEntrega(emailAutenticado(), id, datos));
     }
 
     // END-30: el generador califica al recolector
     @PostMapping("/{id}/rating")
     @PreAuthorize("hasRole('GENERADOR')")
-    public ResponseEntity<CalificacionDTO> calificar(@PathVariable Long id, @RequestBody CalificarRecolectorDTO calificarRecolectorDTO) {
-        return ResponseEntity.ok(solicitudRecoleccionService.calificar(emailAutenticado(), id, calificarRecolectorDTO));
+    public ResponseEntity<CalificacionDTO> calificar(
+            @PathVariable Long id,
+            @RequestBody CalificarRecolectorDTO calificarRecolectorDTO) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.calificar(
+                        emailAutenticado(), id, calificarRecolectorDTO));
     }
 
     // END-31
     @GetMapping("/{id}/tracking")
     @PreAuthorize("hasRole('GENERADOR')")
     public ResponseEntity<SeguimientoDTO> obtenerSeguimiento(@PathVariable Long id) {
-        return ResponseEntity.ok(solicitudRecoleccionService.obtenerSeguimiento(emailAutenticado(), id));
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.obtenerSeguimiento(emailAutenticado(), id));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<DetalleSolicitudDTO> detalle(@PathVariable Long id) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.obtenerDetalle(emailAutenticado(), id));
+    }
+
+    @PatchMapping("/{id}/coordinate")
+    public ResponseEntity<SolicitudDTO> coordinar(
+            @PathVariable Long id,
+            @RequestBody ReprogramarSolicitudDTO datos) {
+        return ResponseEntity.ok(
+                solicitudRecoleccionService.coordinar(emailAutenticado(), id, datos));
+    }
+
+    @PatchMapping("/{id}/start")
+    @PreAuthorize("hasRole('RECOLECTOR')")
+    public ResponseEntity<SolicitudDTO> iniciar(@PathVariable Long id) {
+        return ResponseEntity.ok(solicitudRecoleccionService.iniciar(emailAutenticado(), id));
+    }
+
+    @PutMapping("/{id}/location")
+    @PreAuthorize("hasRole('RECOLECTOR')")
+    public ResponseEntity<Void> ubicacion(@PathVariable Long id,
+            @RequestBody UbicacionDTO datos) {
+        solicitudRecoleccionService.actualizarUbicacion(emailAutenticado(), id, datos);
+        return ResponseEntity.noContent().build();
     }
 
     private String emailAutenticado() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
-    @GetMapping("/{id}")
-    public ResponseEntity<DetalleSolicitudDTO> detalle(@PathVariable Long id) {
-        return ResponseEntity.ok(solicitudRecoleccionService.obtenerDetalle(emailAutenticado(), id));
-    }
-    @PatchMapping("/{id}/coordinate")
-    public ResponseEntity<SolicitudDTO> coordinar(@PathVariable Long id, @RequestBody ReprogramarSolicitudDTO datos) {
-        return ResponseEntity.ok(solicitudRecoleccionService.coordinar(emailAutenticado(), id, datos));
-    }
-    @PatchMapping("/{id}/start") @PreAuthorize("hasRole('RECOLECTOR')")
-    public ResponseEntity<SolicitudDTO> iniciar(@PathVariable Long id) {
-        return ResponseEntity.ok(solicitudRecoleccionService.iniciar(emailAutenticado(), id));
-    }
-    @PutMapping("/{id}/location") @PreAuthorize("hasRole('RECOLECTOR')")
-    public ResponseEntity<Void> ubicacion(@PathVariable Long id, @RequestBody UbicacionDTO datos) {
-        solicitudRecoleccionService.actualizarUbicacion(emailAutenticado(), id, datos);
-        return ResponseEntity.noContent().build();
-    }
-
 }

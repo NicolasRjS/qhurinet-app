@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CalificacionDTO {
+
     private Integer calificacionRecolector;
+
     private BigDecimal calificacionPromedio;
 }

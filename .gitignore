@@ -36,3 +36,6 @@ build/
 # Archivos subidos por los usuarios y logs locales
 uploads/
 logs/
+
+# Credenciales locales
+.env

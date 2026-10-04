@@ -13,10 +13,16 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RutaResumenDTO {
+
     private Long id;
+
     private String nombre;
+
     private String descripcion;
+
     private BigDecimal distanciaTotalKm;
+
     private Integer tiempoEstimadoMin;
+
     private Long totalParadas;
 }

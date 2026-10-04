@@ -1,6 +1,11 @@
 package com.upc.qhurinet.serviceimpl;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.CrearRutaDTO;
+import com.upc.qhurinet.dtos.OptimizarRutaDTO;
+import com.upc.qhurinet.dtos.ParadaRutaDTO;
+import com.upc.qhurinet.dtos.RutaDTO;
+import com.upc.qhurinet.dtos.RutaOptimizadaDTO;
+import com.upc.qhurinet.dtos.RutaResumenDTO;
 import com.upc.qhurinet.entities.PuntoReciclaje;
 import com.upc.qhurinet.entities.RutaParada;
 import com.upc.qhurinet.entities.RutaRecoleccion;
@@ -18,7 +23,14 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -54,7 +66,7 @@ public class RutaRecoleccionServiceImpl implements RutaRecoleccionService {
         if (optimizarRutaDTO.getLatitudOrigen() == null || optimizarRutaDTO.getLongitudOrigen() == null) {
             throw new IllegalArgumentException("latitudOrigen y longitudOrigen: son obligatorias");
         }
-        if (puntosIds.stream().anyMatch(java.util.Objects::isNull) || new HashSet<>(puntosIds).size() != puntosIds.size()) {
+        if (puntosIds.stream().anyMatch(Objects::isNull) || new HashSet<>(puntosIds).size() != puntosIds.size()) {
             throw new IllegalArgumentException("puntosIds: no admite nulos ni repetidos");
         }
         if (optimizarRutaDTO.getLatitudOrigen().abs().compareTo(BigDecimal.valueOf(90)) > 0

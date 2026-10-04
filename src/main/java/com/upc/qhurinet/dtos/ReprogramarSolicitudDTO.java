@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReprogramarSolicitudDTO {
-    private LocalDateTime fechaCoordinada;
-    private String franjaHoraria;
 
+    private LocalDateTime fechaCoordinada;
+
+    private String franjaHoraria;
 }

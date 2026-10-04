@@ -8,6 +8,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
@@ -57,7 +58,7 @@ public class PuntoReciclajeServiceImpl implements PuntoReciclajeService {
                 .orElseThrow(() -> new NoSuchElementException("Punto de reciclaje no encontrado: " + id));
     }
     private String normalizar(String texto) {
-        return java.text.Normalizer.normalize(texto.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
+        return Normalizer.normalize(texto.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "");
     }
 

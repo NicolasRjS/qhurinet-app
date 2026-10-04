@@ -1,20 +1,35 @@
 package com.upc.qhurinet.serviceimpl;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.ActualizarPerfilDTO;
+import com.upc.qhurinet.dtos.CategoriaMaterialDTO;
+import com.upc.qhurinet.dtos.DisponibilidadDTO;
+import com.upc.qhurinet.dtos.FotoPerfilDTO;
+import com.upc.qhurinet.dtos.MetodoPagoDTO;
+import com.upc.qhurinet.dtos.MetodoPagoUsuarioDTO;
+import com.upc.qhurinet.dtos.PerfilUsuarioDTO;
+import com.upc.qhurinet.dtos.RegistrarUsuarioDTO;
+import com.upc.qhurinet.dtos.ReputacionUsuarioDTO;
+import com.upc.qhurinet.dtos.UsuarioDTO;
 import com.upc.qhurinet.entities.Rol;
 import com.upc.qhurinet.entities.SolicitudRecoleccion;
 import com.upc.qhurinet.entities.Usuario;
-import com.upc.qhurinet.repositories.UsuarioRepositorio;
+import com.upc.qhurinet.repositories.CategoriaMaterialRepositorio;
 import com.upc.qhurinet.repositories.DocumentoVerificacionRepositorio;
 import com.upc.qhurinet.repositories.SolicitudRecoleccionRepositorio;
+import com.upc.qhurinet.repositories.UsuarioRepositorio;
 import com.upc.qhurinet.security.util.JwtUtil;
 import com.upc.qhurinet.services.AlmacenamientoService;
+import com.upc.qhurinet.services.CorreoService;
 import com.upc.qhurinet.services.RolService;
 import com.upc.qhurinet.services.UsuarioService;
+
 import jakarta.transaction.Transactional;
+
 import lombok.extern.slf4j.Slf4j;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,62 +37,92 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /*
  Guia de errores del proyecto (los traduce GlobalExceptionHandler):
    IllegalArgumentException      -> 400  dato invalido. Mensaje "campo: detalle"; varios se unen con ", "
-   AccessDeniedException         -> 403  el usuario no es dueño o parte del recurso
+   AccessDeniedException         -> 403  el usuario no es dueno o parte del recurso
    NoSuchElementException        -> 404  recurso no encontrado
    IllegalStateException         -> 409  conflicto de estado o de unicidad
 */
 @Service
 @Slf4j
 public class UsuarioServiceImpl implements UsuarioService {
+
     // Valores admitidos en usuarios.estado
     public static final String ESTADO_PENDIENTE = "pendiente_verificacion";
-    public static final String ESTADO_ACTIVO = "activo";
-    // Valores admitidos en usuarios.metodo_pago_preferido
-    public static final List<String> METODOS_PAGO = List.of("tarjeta", "yape", "plin", "transferencia", "efectivo");
 
-    private static final int PASSWORD_MIN = 8;          // US 25-EP4
-    private static final int NOMBRE_MAX = 150;          // usuarios.nombre_completo varchar(150)
-    private static final int EMAIL_MAX = 150;           // usuarios.email varchar(150)
-    private static final int DESCRIPCION_MAX = 500;     // US 32-EP4
-    private static final String PATRON_TELEFONO = "\\d{9}";               // formato local de 9 digitos
+    public static final String ESTADO_ACTIVO = "activo";
+
+    // Valores admitidos en usuarios.metodo_pago_preferido
+    public static final List<String> METODOS_PAGO =
+            List.of("tarjeta", "yape", "plin", "transferencia", "efectivo");
+
+    // US 25-EP4
+    private static final int PASSWORD_MIN = 8;
+
+    // usuarios.nombre_completo varchar(150)
+    private static final int NOMBRE_MAX = 150;
+
+    // usuarios.email varchar(150)
+    private static final int EMAIL_MAX = 150;
+
+    // US 32-EP4
+    private static final int DESCRIPCION_MAX = 500;
+
+    // formato local de 9 digitos
+    private static final String PATRON_TELEFONO = "\\d{9}";
+
     private static final String PATRON_EMAIL = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$";
-    private static final String PATRON_ETIQUETA = ".*<[^>]*>.*";          // US 32-EP4: sin etiquetas
+
+    // US 32-EP4: sin etiquetas
+    private static final String PATRON_ETIQUETA = ".*<[^>]*>.*";
 
     private static final String CARPETA_FOTOS_PERFIL = "fotos_perfil";
+
     private static final List<String> FORMATOS_IMAGEN = List.of("jpg", "jpeg", "png", "webp");
 
     @Autowired
     private UsuarioRepositorio usuarioRepositorio;
+
     @Autowired
     private SolicitudRecoleccionRepositorio solicitudRecoleccionRepositorio;
+
     @Autowired
     private DocumentoVerificacionRepositorio documentoVerificacionRepositorio;
+
     @Autowired
     private RolService rolService;
+
     @Autowired
     private AlmacenamientoService almacenamientoService;
+
     @Autowired
     private PasswordEncoder passwordEncoder;
+
     @Autowired
     private JwtUtil jwtUtil;
+
     @Autowired
     private ModelMapper modelMapper;
+
     @Autowired
-    private com.upc.qhurinet.repositories.CategoriaMaterialRepositorio categoriaMaterialRepositorio;
+    private CategoriaMaterialRepositorio categoriaMaterialRepositorio;
+
     @Autowired
-    private com.upc.qhurinet.services.CorreoService correoService;
+    private CorreoService correoService;
 
     @Transactional
     @Override
     public UsuarioDTO registrar(RegistrarUsuarioDTO registrarUsuarioDTO) {
         String email = normalizarEmail(registrarUsuarioDTO.getEmail());
-
         List<String> errores = new ArrayList<>();
         validarNombre(registrarUsuarioDTO.getNombreCompleto(), errores);
         if (email.isEmpty()) {
@@ -85,7 +130,8 @@ public class UsuarioServiceImpl implements UsuarioService {
         } else if (!email.matches(PATRON_EMAIL) || email.length() > EMAIL_MAX) {
             errores.add("email: no tiene un formato válido");
         }
-        if (registrarUsuarioDTO.getPassword() == null || registrarUsuarioDTO.getPassword().length() < PASSWORD_MIN) {
+        if (registrarUsuarioDTO.getPassword() == null
+                || registrarUsuarioDTO.getPassword().length() < PASSWORD_MIN) {
             errores.add("password: debe tener al menos " + PASSWORD_MIN + " caracteres");
         }
         validarTelefono(registrarUsuarioDTO.getTelefono(), errores);
@@ -95,12 +141,10 @@ public class UsuarioServiceImpl implements UsuarioService {
         if (!errores.isEmpty()) {
             throw new IllegalArgumentException(String.join(", ", errores));
         }
-
         Rol rol = rolService.buscarRolDeRegistro(registrarUsuarioDTO.getRolId());
         if (usuarioRepositorio.existsByEmail(email)) {
             throw new IllegalStateException("El correo electrónico ya está en uso");
         }
-
         // Se arma la entidad a mano: el password se cifra y el estado lo asigna el servidor
         Usuario usuario = new Usuario();
         usuario.setNombreCompleto(registrarUsuarioDTO.getNombreCompleto().trim());
@@ -109,11 +153,9 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuario.setTelefono(registrarUsuarioDTO.getTelefono());
         usuario.setRol(rol);
         usuario = usuarioRepositorio.save(usuario);
-
         // SMTP en entrega; modo log configurable para desarrollo local.
         String tokenVerificacion = jwtUtil.generarTokenVerificacion(email);
         correoService.enviarVerificacion(email, tokenVerificacion);
-
         return modelMapper.map(usuario, UsuarioDTO.class);
     }
 
@@ -140,7 +182,8 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Transactional
     @Override
-    public PerfilUsuarioDTO actualizarPerfil(String email, ActualizarPerfilDTO actualizarPerfilDTO) {
+    public PerfilUsuarioDTO actualizarPerfil(
+            String email, ActualizarPerfilDTO actualizarPerfilDTO) {
         List<String> errores = new ArrayList<>();
         validarNombre(actualizarPerfilDTO.getNombreCompleto(), errores);
         validarTelefono(actualizarPerfilDTO.getTelefono(), errores);
@@ -153,17 +196,31 @@ public class UsuarioServiceImpl implements UsuarioService {
         if (!errores.isEmpty()) {
             throw new IllegalArgumentException(String.join(", ", errores));
         }
-
         // Solo se modifican los campos editables; el email identifica la cuenta y no cambia
-        Usuario usuario = usuarioRepositorio.buscarParaActualizar(buscarUsuario(email).getId()).orElseThrow();
+        Usuario usuario =
+                usuarioRepositorio.buscarParaActualizar(buscarUsuario(email).getId()).orElseThrow();
         if (actualizarPerfilDTO.getMaterialesIds() != null) {
-            java.util.Set<com.upc.qhurinet.entities.CategoriaMaterial> materiales = new java.util.HashSet<>();
+            Set<Integer> materiales = new TreeSet<>();
             for (Integer id : actualizarPerfilDTO.getMaterialesIds()) {
-                if (id == null) throw new IllegalArgumentException("materialesIds: no admite null");
-                materiales.add(categoriaMaterialRepositorio.findById(id)
-                        .orElseThrow(() -> new NoSuchElementException("Categoría de material no encontrada")));
+                if (id == null) {
+                    throw new IllegalArgumentException("materialesIds: no admite null");
+                }
+                if (!materiales.add(id)) {
+                    throw new IllegalArgumentException("materialesIds: no admite repetidos");
+                }
+                categoriaMaterialRepositorio
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Categoría de material no encontrada"));
             }
-            usuario.setMateriales(materiales);
+            String ids = materiales.stream().map(String::valueOf).collect(Collectors.joining(","));
+            if (ids.length() > 255) {
+                throw new IllegalArgumentException(
+                        "materialesIds: supera el tamaño máximo de 255 caracteres");
+            }
+            usuario.setMateriales(ids.isEmpty() ? null : ids);
         }
         usuario.setNombreCompleto(actualizarPerfilDTO.getNombreCompleto().trim());
         usuario.setTelefono(actualizarPerfilDTO.getTelefono());
@@ -183,7 +240,8 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Transactional
     @Override
-    public DisponibilidadDTO actualizarDisponibilidad(String email, DisponibilidadDTO disponibilidadDTO) {
+    public DisponibilidadDTO actualizarDisponibilidad(
+            String email, DisponibilidadDTO disponibilidadDTO) {
         if (disponibilidadDTO.getEnLinea() == null) {
             throw new IllegalArgumentException("enLinea: es obligatorio (true o false)");
         }
@@ -196,93 +254,155 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional
     @Override
     public MetodoPagoDTO actualizarMetodoPago(String email, MetodoPagoDTO metodoPagoDTO) {
-        Usuario usuario = usuarioRepositorio.buscarParaActualizar(buscarUsuario(email).getId()).orElseThrow();
+        Usuario usuario =
+                usuarioRepositorio.buscarParaActualizar(buscarUsuario(email).getId()).orElseThrow();
         List<MetodoPagoUsuarioDTO> datos = metodoPagoDTO.getMetodos();
+        List<MetodoPagoUsuarioDTO> registrados = metodos(usuario);
         if (datos == null) {
             String tipo = metodoPagoDTO.getMetodoPagoPreferido();
-            if (tipo == null || !METODOS_PAGO.contains(tipo)) throw new IllegalArgumentException("metodoPagoPreferido: no admitido");
-            var existente = usuario.getMetodosPago().stream().filter(m -> m.getTipo().equals(tipo)).findFirst();
-            if (existente.isPresent()) {
-                usuario.getMetodosPago().forEach(m -> m.setPredeterminado(m == existente.get()));
-            } else {
-                if (!"efectivo".equals(tipo)) throw new IllegalArgumentException("metodos: envíe los datos requeridos del método nuevo");
-                usuario.getMetodosPago().forEach(m -> m.setPredeterminado(false));
-                usuario.getMetodosPago().add(new com.upc.qhurinet.entities.MetodoPagoUsuario(null, usuario, tipo, null, true));
+            if (tipo == null || !METODOS_PAGO.contains(tipo)) {
+                throw new IllegalArgumentException("metodoPagoPreferido: no admitido");
             }
+            if (registrados.stream().noneMatch(m -> m.getTipo().equals(tipo))) {
+                if (!"efectivo".equals(tipo)) {
+                    throw new IllegalArgumentException(
+                            "metodos: envíe los datos requeridos del método nuevo");
+                }
+                usuario.setPagoEfectivo(true);
+            }
+            usuario.setMetodoPagoPreferido(tipo);
         } else {
-            if (datos.isEmpty() || datos.size() > 10) throw new IllegalArgumentException("metodos: entre 1 y 10 métodos");
-            if (datos.stream().anyMatch(java.util.Objects::isNull)) throw new IllegalArgumentException("metodos: no admite null");
-            if (datos.stream().filter(m -> Boolean.TRUE.equals(m.getPredeterminado())).count() != 1) {
-                throw new IllegalArgumentException("metodos: exactamente uno debe ser predeterminado");
+            if (datos.size() > 10) {
+                throw new IllegalArgumentException("metodos: entre 1 y 10 métodos");
             }
-            java.util.Set<Long> ids = new java.util.HashSet<>();
-            java.util.List<com.upc.qhurinet.entities.MetodoPagoUsuario> resultado = new java.util.ArrayList<>();
+            if (datos.stream().anyMatch(Objects::isNull)) {
+                throw new IllegalArgumentException("metodos: no admite null");
+            }
+            long predeterminados =
+                    datos.stream().filter(m -> Boolean.TRUE.equals(m.getPredeterminado())).count();
+            if ((!datos.isEmpty() && predeterminados != 1)
+                    || (datos.isEmpty() && predeterminados != 0)) {
+                throw new IllegalArgumentException(
+                        "metodos: exactamente uno debe ser predeterminado");
+            }
+            Set<Long> ids = new HashSet<>();
+            Set<String> tipos = new HashSet<>();
             for (MetodoPagoUsuarioDTO dato : datos) {
                 validarMetodo(dato);
-                com.upc.qhurinet.entities.MetodoPagoUsuario metodo;
-                if (dato.getId() == null) {
-                    metodo = new com.upc.qhurinet.entities.MetodoPagoUsuario(); metodo.setUsuario(usuario);
-                } else {
-                    if (!ids.add(dato.getId())) throw new IllegalArgumentException("metodos: identificador repetido");
-                    metodo = usuario.getMetodosPago().stream().filter(m -> dato.getId().equals(m.getId())).findFirst()
-                            .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Método ajeno al usuario"));
+                if (dato.getId() != null) {
+                    if (!ids.add(dato.getId())) {
+                        throw new IllegalArgumentException("metodos: identificador repetido");
+                    }
+                    if (registrados.stream()
+                            .noneMatch(
+                                    m ->
+                                            dato.getId().equals(m.getId())
+                                                    && dato.getTipo().equals(m.getTipo()))) {
+                        throw new AccessDeniedException("Método ajeno al usuario");
+                    }
                 }
-                metodo.setTipo(dato.getTipo()); metodo.setDato(dato.getDato());
-                metodo.setPredeterminado(Boolean.TRUE.equals(dato.getPredeterminado()));
-                resultado.add(metodo);
+                if (!tipos.add(dato.getTipo())) {
+                    throw new IllegalArgumentException("metodos: tipo repetido");
+                }
             }
-            usuario.getMetodosPago().clear(); usuario.getMetodosPago().addAll(resultado);
+            usuario.setPagoTarjetaUltimos4(null);
+            usuario.setPagoYapeCelular(null);
+            usuario.setPagoPlinCelular(null);
+            usuario.setPagoTransferenciaCuenta(null);
+            usuario.setPagoEfectivo(false);
+            usuario.setMetodoPagoPreferido(null);
+            usuario.setPagoTarjetaId(null);
+            usuario.setPagoYapeId(null);
+            usuario.setPagoPlinId(null);
+            usuario.setPagoTransferenciaId(null);
+            usuario.setPagoEfectivoId(null);
+            for (MetodoPagoUsuarioDTO dato : datos) {
+                Long id =
+                        registrados.stream()
+                                .filter(m -> m.getTipo().equals(dato.getTipo()))
+                                .map(MetodoPagoUsuarioDTO::getId)
+                                .findFirst()
+                                .orElse(null);
+                switch (dato.getTipo()) {
+                    case "tarjeta" -> {
+                        usuario.setPagoTarjetaUltimos4(dato.getDato());
+                        usuario.setPagoTarjetaId(id);
+                    }
+                    case "yape" -> {
+                        usuario.setPagoYapeCelular(dato.getDato());
+                        usuario.setPagoYapeId(id);
+                    }
+                    case "plin" -> {
+                        usuario.setPagoPlinCelular(dato.getDato());
+                        usuario.setPagoPlinId(id);
+                    }
+                    case "transferencia" -> {
+                        usuario.setPagoTransferenciaCuenta(dato.getDato());
+                        usuario.setPagoTransferenciaId(id);
+                    }
+                    case "efectivo" -> {
+                        usuario.setPagoEfectivo(true);
+                        usuario.setPagoEfectivoId(id);
+                    }
+                    default -> throw new IllegalArgumentException("tipo: método no admitido");
+                }
+                if (Boolean.TRUE.equals(dato.getPredeterminado())) {
+                    usuario.setMetodoPagoPreferido(dato.getTipo());
+                }
+            }
         }
-        usuario.setMetodoPagoPreferido(usuario.getMetodosPago().stream().filter(m -> m.isPredeterminado()).findFirst().orElseThrow().getTipo());
         usuarioRepositorio.saveAndFlush(usuario);
         return new MetodoPagoDTO(usuario.getMetodoPagoPreferido(), metodos(usuario));
     }
 
-    private void validarMetodo(MetodoPagoUsuarioDTO metodo) {
-        if (metodo.getTipo() == null || !METODOS_PAGO.contains(metodo.getTipo())) throw new IllegalArgumentException("tipo: método no admitido");
-        String dato = metodo.getDato();
-        boolean valido = switch (metodo.getTipo()) {
-            case "efectivo" -> dato == null || dato.isBlank();
-            case "yape", "plin" -> dato != null && dato.matches("\\d{9}");
-            case "tarjeta" -> dato != null && dato.matches("\\d{4}");
-            case "transferencia" -> dato != null && dato.matches("\\d{20}");
-            default -> false;
-        };
-        if (!valido) throw new IllegalArgumentException("dato: billetera requiere 9 dígitos; tarjeta solo últimos 4; transferencia CCI de 20; efectivo sin dato");
-    }
-    private List<MetodoPagoUsuarioDTO> metodos(Usuario u) {
-        return u.getMetodosPago().stream().map(m -> new MetodoPagoUsuarioDTO(m.getId(), m.getTipo(), m.getDato(), m.isPredeterminado())).toList();
-    }
-    private PerfilUsuarioDTO perfil(Usuario u) {
-        PerfilUsuarioDTO dto = modelMapper.map(u, PerfilUsuarioDTO.class);
-        dto.setMetodosPago(metodos(u));
-        dto.setMateriales(u.getMateriales().stream().map(c -> modelMapper.map(c, CategoriaMaterialDTO.class)).toList());
-        dto.setVerificado(!documentoVerificacionRepositorio.findByUsuario_IdAndEstado(u.getId(), DocumentoVerificacionServiceImpl.ESTADO_APROBADO).isEmpty());
-        if (dto.getCalificacionPromedio() != null && dto.getCalificacionPromedio().signum() == 0) dto.setCalificacionPromedio(null);
-        return dto;
-    }
-
     @Override
     public ReputacionUsuarioDTO obtenerReputacion(Long id) {
-        Usuario usuario = usuarioRepositorio.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado"));
+        Usuario usuario =
+                usuarioRepositorio
+                        .findById(id)
+                        .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado"));
         boolean generador = RolServiceImpl.GENERADOR.equals(usuario.getRol().getNombre());
-        List<SolicitudRecoleccion> entregas = generador
-                ? solicitudRecoleccionRepositorio.findByPublicacion_Generador_IdAndEstado(usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA)
-                : solicitudRecoleccionRepositorio.findByRecolector_IdAndEstado(usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA);
-        List<SolicitudRecoleccion> calificadas = entregas.stream()
-                .filter(solicitud -> !generador && solicitud.getCalificacionRecolector() != null)
-                .toList();
-        BigDecimal promedio = calificadas.isEmpty() ? null : calificadas.stream()
-                .map(solicitud -> BigDecimal.valueOf(solicitud.getCalificacionRecolector()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(BigDecimal.valueOf(calificadas.size()), 2, RoundingMode.HALF_UP);
-        boolean verificado = !documentoVerificacionRepositorio.findByUsuario_IdAndEstado(
-                usuario.getId(), DocumentoVerificacionServiceImpl.ESTADO_APROBADO).isEmpty();
-        ReputacionUsuarioDTO dto = new ReputacionUsuarioDTO(usuario.getId(), usuario.getNombreCompleto(),
-                usuario.getFotoPerfilUrl(), promedio, (long) entregas.size(), verificado);
-        dto.setDescripcion(usuario.getDescripcion()); dto.setRolNombre(usuario.getRol().getNombre());
-        dto.setMateriales(usuario.getMateriales().stream().map(c -> modelMapper.map(c, CategoriaMaterialDTO.class)).toList());
+        List<SolicitudRecoleccion> entregas =
+                generador
+                        ? solicitudRecoleccionRepositorio.findByPublicacion_Generador_IdAndEstado(
+                                usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA)
+                        : solicitudRecoleccionRepositorio.findByRecolector_IdAndEstado(
+                                usuario.getId(), SolicitudRecoleccionServiceImpl.EJECUTADA);
+        List<SolicitudRecoleccion> calificadas =
+                entregas.stream()
+                        .filter(
+                                solicitud ->
+                                        !generador && solicitud.getCalificacionRecolector() != null)
+                        .toList();
+        BigDecimal promedio =
+                calificadas.isEmpty()
+                        ? null
+                        : calificadas.stream()
+                                .map(
+                                        solicitud ->
+                                                BigDecimal.valueOf(
+                                                        solicitud.getCalificacionRecolector()))
+                                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                                .divide(
+                                        BigDecimal.valueOf(calificadas.size()),
+                                        2,
+                                        RoundingMode.HALF_UP);
+        boolean verificado =
+                !documentoVerificacionRepositorio
+                        .findByUsuario_IdAndEstado(
+                                usuario.getId(), DocumentoVerificacionServiceImpl.ESTADO_APROBADO)
+                        .isEmpty();
+        ReputacionUsuarioDTO dto =
+                new ReputacionUsuarioDTO(
+                        usuario.getId(),
+                        usuario.getNombreCompleto(),
+                        usuario.getFotoPerfilUrl(),
+                        promedio,
+                        (long) entregas.size(),
+                        verificado);
+        dto.setDescripcion(usuario.getDescripcion());
+        dto.setRolNombre(usuario.getRol().getNombre());
+        dto.setMateriales(materiales(usuario));
         return dto;
     }
 
@@ -291,8 +411,94 @@ public class UsuarioServiceImpl implements UsuarioService {
         return buscarUsuario(email);
     }
 
+    private void validarMetodo(MetodoPagoUsuarioDTO metodo) {
+        if (metodo.getTipo() == null || !METODOS_PAGO.contains(metodo.getTipo())) {
+            throw new IllegalArgumentException("tipo: método no admitido");
+        }
+        String dato = metodo.getDato();
+        boolean valido =
+                switch (metodo.getTipo()) {
+                    case "efectivo" -> dato == null || dato.isBlank();
+                    case "yape", "plin" -> dato != null && dato.matches("\\d{9}");
+                    case "tarjeta" -> dato != null && dato.matches("\\d{4}");
+                    case "transferencia" -> dato != null && dato.matches("\\d{20}");
+                    default -> false;
+                };
+        if (!valido) {
+            throw new IllegalArgumentException(
+                    "dato: billetera requiere 9 dígitos; tarjeta solo últimos 4; transferencia CCI"
+                        + " de 20; efectivo sin dato");
+        }
+    }
+
+    private List<MetodoPagoUsuarioDTO> metodos(Usuario usuario) {
+        List<MetodoPagoUsuarioDTO> resultado = new ArrayList<>();
+        for (String tipo : METODOS_PAGO) {
+            String dato =
+                    switch (tipo) {
+                        case "tarjeta" -> usuario.getPagoTarjetaUltimos4();
+                        case "yape" -> usuario.getPagoYapeCelular();
+                        case "plin" -> usuario.getPagoPlinCelular();
+                        case "transferencia" -> usuario.getPagoTransferenciaCuenta();
+                        default -> null;
+                    };
+            if (dato != null || ("efectivo".equals(tipo) && usuario.isPagoEfectivo())) {
+                Long anterior =
+                        switch (tipo) {
+                            case "tarjeta" -> usuario.getPagoTarjetaId();
+                            case "yape" -> usuario.getPagoYapeId();
+                            case "plin" -> usuario.getPagoPlinId();
+                            case "transferencia" -> usuario.getPagoTransferenciaId();
+                            default -> usuario.getPagoEfectivoId();
+                        };
+                // Los nuevos ids negativos no colisionan con los antiguos ids identity positivos.
+                long id =
+                        anterior == null
+                                ? -(usuario.getId() * 10 + METODOS_PAGO.indexOf(tipo) + 1)
+                                : anterior;
+                resultado.add(
+                        new MetodoPagoUsuarioDTO(
+                                id, tipo, dato, tipo.equals(usuario.getMetodoPagoPreferido())));
+            }
+        }
+        return resultado;
+    }
+
+    private List<CategoriaMaterialDTO> materiales(Usuario usuario) {
+        if (usuario.getMateriales() == null || usuario.getMateriales().isBlank()) {
+            return List.of();
+        }
+        List<CategoriaMaterialDTO> resultado = new ArrayList<>();
+        for (String id : usuario.getMateriales().split(",")) {
+            categoriaMaterialRepositorio
+                    .findById(Integer.valueOf(id))
+                    .ifPresent(
+                            categoria ->
+                                    resultado.add(
+                                            modelMapper.map(
+                                                    categoria, CategoriaMaterialDTO.class)));
+        }
+        return resultado;
+    }
+
+    private PerfilUsuarioDTO perfil(Usuario u) {
+        PerfilUsuarioDTO dto = modelMapper.map(u, PerfilUsuarioDTO.class);
+        dto.setMetodosPago(metodos(u));
+        dto.setMateriales(materiales(u));
+        dto.setVerificado(
+                !documentoVerificacionRepositorio
+                        .findByUsuario_IdAndEstado(
+                                u.getId(), DocumentoVerificacionServiceImpl.ESTADO_APROBADO)
+                        .isEmpty());
+        if (dto.getCalificacionPromedio() != null && dto.getCalificacionPromedio().signum() == 0) {
+            dto.setCalificacionPromedio(null);
+        }
+        return dto;
+    }
+
     private Usuario buscarUsuario(String email) {
-        return usuarioRepositorio.findByEmail(email)
+        return usuarioRepositorio
+                .findByEmail(email)
                 .orElseThrow(() -> new NoSuchElementException("Usuario no encontrado"));
     }
 

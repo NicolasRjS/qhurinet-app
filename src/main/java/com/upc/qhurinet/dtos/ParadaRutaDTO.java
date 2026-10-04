@@ -13,10 +13,16 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ParadaRutaDTO {
+
     private Long puntoReciclajeId;
+
     private Integer orden;
+
     private String nombre;
+
     private String direccion;
+
     private BigDecimal latitud;
+
     private BigDecimal longitud;
 }

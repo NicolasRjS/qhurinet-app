@@ -1,5 +1,6 @@
 package com.upc.qhurinet.services;
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.SeguimientoDTO;
+import com.upc.qhurinet.dtos.UbicacionDTO;
 import com.upc.qhurinet.entities.SolicitudRecoleccion;
 public interface SeguimientoService {
     void actualizar(Long id, UbicacionDTO ubicacion);

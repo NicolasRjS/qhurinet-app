@@ -11,7 +11,10 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CategoriaMaterialDTO {
+
     private Integer id;
+
     private String nombre;
+
     private String unidadMedidaDefault;
 }

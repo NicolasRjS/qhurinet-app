@@ -11,8 +11,12 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CrearTicketDTO {
+
     private String categoria;
+
     private String asunto;
+
     private String descripcion;
+
     private Long solicitudId;
 }

@@ -11,5 +11,6 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FotoPerfilDTO {
+
     private String fotoPerfilUrl;
 }

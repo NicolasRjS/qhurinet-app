@@ -1,5 +1,6 @@
 package com.upc.qhurinet.services;
 
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -24,8 +25,7 @@ import java.util.List;
 */
 public interface AlmacenamientoService {
     public String guardar(MultipartFile archivo, String carpeta, List<String> extensionesPermitidas);
-    String validar(MultipartFile archivo, List<String> extensiones);
-    org.springframework.core.io.Resource obtener(String email, String id);
-    String tipo(String extension);
-
+    public String validar(MultipartFile archivo, List<String> extensiones);
+    public Resource obtener(String email, String id);
+    public String tipo(String extension);
 }

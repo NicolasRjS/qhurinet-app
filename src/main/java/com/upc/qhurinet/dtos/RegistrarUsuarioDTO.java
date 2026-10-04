@@ -11,9 +11,15 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RegistrarUsuarioDTO {
+
     private String nombreCompleto;
+
     private String email;
+
     private String password;
+
     private String telefono;
-    private Integer rolId; // generador o recolector
+
+    // generador o recolector
+    private Integer rolId;
 }

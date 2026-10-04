@@ -1,0 +1,48 @@
+services:
+  api:
+    image: 'qhurinet-api:latest'
+    build:
+      context: .
+    container_name: springboot-api
+    ports:
+      - "8088:8088"
+    networks:
+      - qhurinet-network
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    # Claves de .env (JWT_SECRET, Gemini, correo, URLs del front); ver .env.example
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/db_qhurinet
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: always
+    container_name: postgres-db
+    networks:
+      - qhurinet-network
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=db_qhurinet
+    # Sin "ports": el 5432 no se expone fuera de la instancia; la API llega por la red interna
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d db_qhurinet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  db_data:
+networks:
+  qhurinet-network:
+    name: springcloud

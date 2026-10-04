@@ -13,9 +13,14 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EntregaQrDTO {
+
     private Long solicitudId;
+
     private String generador;
+
     private String direccion;
+
     private String material;
+
     private BigDecimal cantidad;
 }

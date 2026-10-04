@@ -16,12 +16,20 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RutaDTO {
+
     private Long id;
+
     private String nombre;
+
     private String descripcion;
+
     private LocalDate fechaRuta;
+
     private BigDecimal distanciaTotalKm;
+
     private Integer tiempoEstimadoMin;
+
     private LocalDateTime fechaCreacion;
+
     private List<ParadaRutaDTO> paradas;
 }

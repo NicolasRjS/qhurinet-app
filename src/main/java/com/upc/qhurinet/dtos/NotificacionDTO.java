@@ -13,8 +13,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NotificacionDTO {
+
     private Long id;
+
     private String mensaje;
+
     private Boolean leida;
+
     private LocalDateTime fechaCreacion;
 }

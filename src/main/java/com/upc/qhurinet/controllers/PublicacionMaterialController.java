@@ -1,6 +1,11 @@
 package com.upc.qhurinet.controllers;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.CancelarSolicitudDTO;
+import com.upc.qhurinet.dtos.CrearPublicacionDTO;
+import com.upc.qhurinet.dtos.EditarPublicacionDTO;
+import com.upc.qhurinet.dtos.FotoPublicacionDTO;
+import com.upc.qhurinet.dtos.MiPublicacionDTO;
+import com.upc.qhurinet.dtos.PublicacionDTO;
 import com.upc.qhurinet.services.PublicacionMaterialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

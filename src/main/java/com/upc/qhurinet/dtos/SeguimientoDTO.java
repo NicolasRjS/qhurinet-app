@@ -14,17 +14,40 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SeguimientoDTO {
+
     private Long solicitudId;
+
     private String estado;
+
     private LocalDateTime fechaCoordinada;
+
     private String recolector;
+
     private String destino;
+
     private BigDecimal latitudDestino;
+
     private BigDecimal longitudDestino;
+
     private BigDecimal latitudActual;
+
     private BigDecimal longitudActual;
+
     private Integer minutosEstimados;
-    public SeguimientoDTO(Long solicitudId, String estado, LocalDateTime fechaCoordinada, String recolector, String destino, BigDecimal latitudDestino, BigDecimal longitudDestino, BigDecimal latitudActual, BigDecimal longitudActual, Integer minutosEstimados) {
+
+    private LocalDateTime fechaActualizacion;
+
+    public SeguimientoDTO(
+            Long solicitudId,
+            String estado,
+            LocalDateTime fechaCoordinada,
+            String recolector,
+            String destino,
+            BigDecimal latitudDestino,
+            BigDecimal longitudDestino,
+            BigDecimal latitudActual,
+            BigDecimal longitudActual,
+            Integer minutosEstimados) {
         this.solicitudId = solicitudId;
         this.estado = estado;
         this.fechaCoordinada = fechaCoordinada;
@@ -36,7 +59,4 @@ public class SeguimientoDTO {
         this.longitudActual = longitudActual;
         this.minutosEstimados = minutosEstimados;
     }
-
-    private LocalDateTime fechaActualizacion;
-
 }

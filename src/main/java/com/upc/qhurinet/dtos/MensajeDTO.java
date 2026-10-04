@@ -13,9 +13,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MensajeDTO {
+
     private Long id;
+
     private String contenido;
+
     private LocalDateTime fechaEnvio;
+
     private LocalDateTime fechaLectura;
+
     private Long remitenteId;
 }

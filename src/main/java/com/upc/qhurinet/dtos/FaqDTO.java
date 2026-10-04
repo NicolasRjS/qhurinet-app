@@ -11,6 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FaqDTO {
+
     private String pregunta;
+
     private String respuesta;
 }

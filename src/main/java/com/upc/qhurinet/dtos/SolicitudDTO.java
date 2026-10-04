@@ -14,22 +14,36 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SolicitudDTO {
+
     private Long id;
+
     private Long publicacionId;
+
     private Long recolectorId;
+
     private String estado;
+
     private Boolean prioritaria;
+
     private LocalDateTime fechaSolicitud;
+
     private LocalDateTime fechaCoordinada;
+
     private LocalDateTime fechaEjecucion;
+
     private LocalDateTime fechaValidacion;
+
     private String observaciones;
+
     private Boolean qrValidado;
+
     private Integer calificacionRecolector;
+
     private BigDecimal montoPago;
+
     private String metodoPago;
+
     private String franjaHoraria;
 
     private String comentarioCalificacion;
-
 }

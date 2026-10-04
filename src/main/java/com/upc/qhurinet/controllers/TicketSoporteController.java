@@ -1,6 +1,10 @@
 package com.upc.qhurinet.controllers;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.ContactoSoporteDTO;
+import com.upc.qhurinet.dtos.CrearTicketDTO;
+import com.upc.qhurinet.dtos.EvidenciaTicketDTO;
+import com.upc.qhurinet.dtos.FaqDTO;
+import com.upc.qhurinet.dtos.TicketSoporteDTO;
 import com.upc.qhurinet.services.TicketSoporteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

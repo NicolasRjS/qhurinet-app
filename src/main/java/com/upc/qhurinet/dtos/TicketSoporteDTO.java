@@ -13,13 +13,22 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TicketSoporteDTO {
+
     private Long id;
+
     private Long solicitudId;
+
     private String categoria;
+
     private String estado;
+
     private String asunto;
+
     private String descripcion;
+
     private String evidenciaUrl;
+
     private LocalDateTime fechaCreacion;
+
     private LocalDateTime fechaCierre;
 }

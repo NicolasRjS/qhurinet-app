@@ -1,6 +1,7 @@
 package com.upc.qhurinet.entities;
 
 import jakarta.persistence.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -47,15 +48,18 @@ public class PuntoReciclaje {
     @Column(precision = 3, scale = 2)
     private BigDecimal calificacionPromedio = BigDecimal.ZERO;
 
-    // Tabla punto_reciclaje_materiales. Con Set la PK queda (punto_reciclaje_id, categoria_material_id).
+    // Tabla punto_reciclaje_materiales. Con Set la PK queda (punto_reciclaje_id,
+    // categoria_material_id).
     // Borrado en cascada del modelo (punto_reciclaje_materiales -> puntos_reciclaje), a nivel de
-    // aplicacion: al eliminar el punto se eliminan sus filas en la tabla intermedia, no las categorias.
+    // aplicacion: al eliminar el punto se eliminan sus filas en la tabla intermedia, no las
+    // categorias.
     @ManyToMany
-    @JoinTable(name = "punto_reciclaje_materiales",
+    @JoinTable(
+            name = "punto_reciclaje_materiales",
             joinColumns = @JoinColumn(name = "punto_reciclaje_id"),
             inverseJoinColumns = @JoinColumn(name = "categoria_material_id"))
     private Set<CategoriaMaterial> materiales = new HashSet<>();
+
     @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean activo = true;
-
 }

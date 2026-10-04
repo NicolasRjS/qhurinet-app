@@ -2,8 +2,10 @@ package com.upc.qhurinet.security.services;
 
 import com.upc.qhurinet.entities.Usuario;
 import com.upc.qhurinet.repositories.UsuarioRepositorio;
+
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.Set;
+
 /**
  * Busca al usuario en la BD por su email (el "username" de la cuenta).
  * Si no existe -> lanza excepcion.
@@ -30,16 +33,16 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        Usuario usuario = usuarioRepositorio.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
-
+        Usuario usuario =
+                usuarioRepositorio
+                        .findByEmail(email)
+                        .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
         // Un usuario tiene un solo rol (los roles son excluyentes)
         Set<GrantedAuthority> authorities = new HashSet<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().getNombre().toUpperCase()));
-
-        return org.springframework.security.core.userdetails.User
-                .withUsername(usuario.getEmail())
-                .password(usuario.getPasswordHash() == null ? "!sin-clave-local" : usuario.getPasswordHash())
+        authorities.add(
+                new SimpleGrantedAuthority("ROLE_" + usuario.getRol().getNombre().toUpperCase()));
+        return User.withUsername(usuario.getEmail())
+                .password(usuario.getPasswordHash())
                 .authorities(authorities)
                 .build();
     }

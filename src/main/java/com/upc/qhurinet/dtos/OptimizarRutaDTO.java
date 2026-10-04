@@ -14,7 +14,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OptimizarRutaDTO {
+
     private BigDecimal latitudOrigen;
+
     private BigDecimal longitudOrigen;
+
     private List<Long> puntosIds;
 }

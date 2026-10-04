@@ -14,18 +14,28 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EditarPublicacionDTO {
+
     private BigDecimal cantidad;
+
     private String descripcion;
+
     private String direccion;
+
     private LocalDate fechaDisponibilidad;
+
     private String franjaHoraria;
+
     private BigDecimal montoPago;
+
     private String metodoPago;
 
     private Integer categoriaMaterialId;
-    private String unidadMedida;
-    private String distrito;
-    private BigDecimal latitud;
-    private BigDecimal longitud;
 
+    private String unidadMedida;
+
+    private String distrito;
+
+    private BigDecimal latitud;
+
+    private BigDecimal longitud;
 }

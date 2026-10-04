@@ -14,14 +14,24 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PuntoReciclajeDTO {
+
     private Long id;
+
     private String nombre;
+
     private String tipo;
+
     private String direccion;
+
     private String distrito;
+
     private BigDecimal latitud;
+
     private BigDecimal longitud;
+
     private String horarioAtencion;
+
     private BigDecimal calificacionPromedio;
+
     private List<CategoriaMaterialDTO> materiales;
 }

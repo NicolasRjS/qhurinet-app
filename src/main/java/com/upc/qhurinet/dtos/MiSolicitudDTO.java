@@ -14,15 +14,38 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MiSolicitudDTO {
+
     private Long id;
+
     private BigDecimal cantidad;
+
     private String material;
+
     private String direccion;
+
     private String estado;
+
     private Boolean prioritaria;
+
     private String contraparte;
+
     private LocalDateTime fechaCoordinada;
-    public MiSolicitudDTO(Long id, BigDecimal cantidad, String material, String direccion, String estado, Boolean prioritaria, String contraparte, LocalDateTime fechaCoordinada) {
+
+    private Long publicacionId;
+
+    private String franjaHoraria;
+
+    private String unidadMedida;
+
+    public MiSolicitudDTO(
+            Long id,
+            BigDecimal cantidad,
+            String material,
+            String direccion,
+            String estado,
+            Boolean prioritaria,
+            String contraparte,
+            LocalDateTime fechaCoordinada) {
         this.id = id;
         this.cantidad = cantidad;
         this.material = material;
@@ -32,9 +55,4 @@ public class MiSolicitudDTO {
         this.contraparte = contraparte;
         this.fechaCoordinada = fechaCoordinada;
     }
-
-    private Long publicacionId;
-    private String franjaHoraria;
-    private String unidadMedida;
-
 }

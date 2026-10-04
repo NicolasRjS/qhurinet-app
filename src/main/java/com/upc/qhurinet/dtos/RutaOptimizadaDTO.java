@@ -14,7 +14,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RutaOptimizadaDTO {
+
     private List<ParadaRutaDTO> paradas;
+
     private BigDecimal distanciaTotalKm;
+
     private Integer tiempoEstimadoMin;
 }

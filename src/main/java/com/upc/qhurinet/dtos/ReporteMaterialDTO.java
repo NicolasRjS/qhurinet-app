@@ -13,10 +13,14 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReporteMaterialDTO {
-    private String material;
-    private BigDecimal kilos;
-    private Long recolecciones;
-    private BigDecimal cantidadTotal;
-    private String unidadMedida;
 
+    private String material;
+
+    private BigDecimal kilos;
+
+    private Long recolecciones;
+
+    private BigDecimal cantidadTotal;
+
+    private String unidadMedida;
 }

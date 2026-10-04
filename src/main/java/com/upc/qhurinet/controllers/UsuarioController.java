@@ -1,6 +1,11 @@
 package com.upc.qhurinet.controllers;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.ActualizarPerfilDTO;
+import com.upc.qhurinet.dtos.DisponibilidadDTO;
+import com.upc.qhurinet.dtos.FotoPerfilDTO;
+import com.upc.qhurinet.dtos.MetodoPagoDTO;
+import com.upc.qhurinet.dtos.PerfilUsuarioDTO;
+import com.upc.qhurinet.dtos.ReputacionUsuarioDTO;
 import com.upc.qhurinet.services.UsuarioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;

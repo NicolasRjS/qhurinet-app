@@ -68,10 +68,18 @@ public class NotificacionServiceImpl implements NotificacionService {
         notificacion.setMensaje(mensaje.length() > 255 ? mensaje.substring(0, 252) + "..." : mensaje);
         notificacionRepositorio.save(notificacion);
     }
-    @Override @Transactional
+
+    // PATCH /notifications/read-all: solo las propias notificaciones pendientes
+    @Override
+    @Transactional
     public void marcarTodas(String email) {
-        usuarioService.obtenerUsuario(email).getNotificaciones().stream().filter(n -> !n.isLeida())
-                .forEach(n -> { n.setLeida(true); notificacionRepositorio.save(n); });
+        usuarioService.obtenerUsuario(email).getNotificaciones()
+                .stream()
+                .filter(notificacion -> !notificacion.isLeida())
+                .forEach(notificacion -> {
+                    notificacion.setLeida(true);
+                    notificacionRepositorio.save(notificacion);
+                });
     }
 
 }

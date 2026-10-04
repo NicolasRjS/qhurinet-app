@@ -14,14 +14,33 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HistorialDTO {
+
     private LocalDateTime fecha;
+
     private String material;
+
     private BigDecimal cantidad;
+
     private String contraparte;
+
     private Integer calificacionRecolector;
+
     private String estado;
+
     private BigDecimal montoPago;
-    public HistorialDTO(LocalDateTime fecha, String material, BigDecimal cantidad, String contraparte, Integer calificacionRecolector, String estado, BigDecimal montoPago) {
+
+    private Long solicitudId;
+
+    private String unidadMedida;
+
+    public HistorialDTO(
+            LocalDateTime fecha,
+            String material,
+            BigDecimal cantidad,
+            String contraparte,
+            Integer calificacionRecolector,
+            String estado,
+            BigDecimal montoPago) {
         this.fecha = fecha;
         this.material = material;
         this.cantidad = cantidad;
@@ -30,8 +49,4 @@ public class HistorialDTO {
         this.estado = estado;
         this.montoPago = montoPago;
     }
-
-    private Long solicitudId;
-    private String unidadMedida;
-
 }

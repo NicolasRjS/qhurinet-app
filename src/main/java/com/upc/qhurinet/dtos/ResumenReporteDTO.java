@@ -13,8 +13,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResumenReporteDTO {
+
     private BigDecimal kgTotales;
+
     private Long totalRecojos;
+
     private BigDecimal calificacionPromedio;
+
     private BigDecimal cumplimiento;
 }

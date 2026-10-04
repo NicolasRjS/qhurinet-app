@@ -1,6 +1,10 @@
 package com.upc.qhurinet.services;
 
-import com.upc.qhurinet.dtos.*;
+import com.upc.qhurinet.dtos.ContactoSoporteDTO;
+import com.upc.qhurinet.dtos.CrearTicketDTO;
+import com.upc.qhurinet.dtos.EvidenciaTicketDTO;
+import com.upc.qhurinet.dtos.FaqDTO;
+import com.upc.qhurinet.dtos.TicketSoporteDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;

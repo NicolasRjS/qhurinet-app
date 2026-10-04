@@ -14,18 +14,30 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CrearPublicacionDTO {
-    private Integer categoriaMaterialId;
-    private BigDecimal cantidad;
-    private String unidadMedida;
-    private String descripcion;
-    private String fotoUrl;
-    private String direccion;
-    private String distrito;
-    private BigDecimal latitud;
-    private BigDecimal longitud;
-    private LocalDate fechaDisponibilidad;
-    private String franjaHoraria;
-    private BigDecimal montoPago;
-    private String metodoPago;
 
+    private Integer categoriaMaterialId;
+
+    private BigDecimal cantidad;
+
+    private String unidadMedida;
+
+    private String descripcion;
+
+    private String fotoUrl;
+
+    private String direccion;
+
+    private String distrito;
+
+    private BigDecimal latitud;
+
+    private BigDecimal longitud;
+
+    private LocalDate fechaDisponibilidad;
+
+    private String franjaHoraria;
+
+    private BigDecimal montoPago;
+
+    private String metodoPago;
 }

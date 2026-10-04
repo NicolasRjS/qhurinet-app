@@ -11,6 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ContactoSoporteDTO {
+
     private String telefono;
+
     private String horarioAtencion;
 }

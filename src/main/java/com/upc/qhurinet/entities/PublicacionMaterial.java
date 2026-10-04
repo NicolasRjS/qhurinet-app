@@ -1,6 +1,7 @@
 package com.upc.qhurinet.entities;
 
 import jakarta.persistence.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,7 +17,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "publicaciones_material",
+@Table(
+        name = "publicaciones_material",
         indexes = @Index(name = "idx_publicaciones_mapa", columnList = "estado, distrito"))
 public class PublicacionMaterial {
 
@@ -68,13 +70,16 @@ public class PublicacionMaterial {
 
     @Column(nullable = false)
     private LocalDateTime fechaPublicacion = LocalDateTime.now();
+
     @Column(length = 20)
     private String franjaHoraria;
+
     @Column(precision = 10, scale = 2)
     private BigDecimal montoPago;
+
     @Column(length = 20)
     private String metodoPago;
+
     @Column(length = 500)
     private String motivoCancelacion;
-
 }

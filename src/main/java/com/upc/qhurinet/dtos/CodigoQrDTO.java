@@ -11,6 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CodigoQrDTO {
+
     private String codigoQr;
+
     private Boolean qrValidado;
 }

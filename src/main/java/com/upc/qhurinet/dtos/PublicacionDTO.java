@@ -15,24 +15,42 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PublicacionDTO {
-    private Long id;
-    private Integer categoriaMaterialId;
-    private String categoriaMaterialNombre;
-    private BigDecimal cantidad;
-    private String unidadMedida;
-    private String descripcion;
-    private String estado;
-    private String fotoUrl;
-    private String direccion;
-    private String distrito;
-    private BigDecimal latitud;
-    private BigDecimal longitud;
-    private LocalDate fechaDisponibilidad;
-    private LocalDateTime fechaPublicacion;
-    private Long generadorId;
-    private String generadorNombreCompleto;
-    private String franjaHoraria;
-    private BigDecimal montoPago;
-    private String metodoPago;
 
+    private Long id;
+
+    private Integer categoriaMaterialId;
+
+    private String categoriaMaterialNombre;
+
+    private BigDecimal cantidad;
+
+    private String unidadMedida;
+
+    private String descripcion;
+
+    private String estado;
+
+    private String fotoUrl;
+
+    private String direccion;
+
+    private String distrito;
+
+    private BigDecimal latitud;
+
+    private BigDecimal longitud;
+
+    private LocalDate fechaDisponibilidad;
+
+    private LocalDateTime fechaPublicacion;
+
+    private Long generadorId;
+
+    private String generadorNombreCompleto;
+
+    private String franjaHoraria;
+
+    private BigDecimal montoPago;
+
+    private String metodoPago;
 }

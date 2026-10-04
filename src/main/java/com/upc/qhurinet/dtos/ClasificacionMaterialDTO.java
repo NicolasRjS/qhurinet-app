@@ -13,7 +13,10 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClasificacionMaterialDTO {
+
     private Integer categoriaMaterialId;
+
     private String categoriaMaterialNombre;
+
     private BigDecimal confianza;
 }
